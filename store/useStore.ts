@@ -8,7 +8,7 @@ interface StoreState {
   loading: boolean;
   error: string | null;
   loadNotes: () => Promise<void>;
-  createNote: (input: NoteCreateInput) => Promise<void>;
+  createNote: (input: NoteCreateInput) => Promise<Note | null>;
   updateNote: (id: string, input: NoteUpdateInput) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   selectNote: (id: string | null) => void;
@@ -41,11 +41,13 @@ export const useStore = create<StoreState>((set, get) => ({
         selectedNoteId: note.id,
         loading: false,
       });
+      return note;
     } catch (e) {
       set({
         loading: false,
         error: e instanceof Error ? e.message : "创建笔记失败",
       });
+      return null;
     }
   },
   async updateNote(id, input) {

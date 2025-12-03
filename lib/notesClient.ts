@@ -74,7 +74,6 @@ export const localNoteClient: NoteClient = {
   },
 };
 
-// 未来如果接入真实后端，只需要新增一个 HTTP 实现并在 store 中替换为该实现：
 // export const httpNoteClient: NoteClient = {
 //   async list() {
 //     const res = await fetch("/api/notes");
