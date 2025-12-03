@@ -62,7 +62,7 @@ export function AppSidebar({ notes: initialNotes }: AppSidebarProps) {
   };
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-border p-4">
         <div className="flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-2">
