@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import FontFamily from '@tiptap/extension-font-family';
+import Image from '@tiptap/extension-image';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
 import {
   Bold,
   Italic,
@@ -71,6 +73,10 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
       FontFamily.configure({
         types: ['textStyle'],
       }),
+      Image.configure({
+        inline: false, // 图片作为块级元素（默认）
+        allowBase64: true, // 允许 base64 图片（用于本地预览）
+      }),
     ],
     content: initialContent,
     onUpdate: ({ editor }) => {
@@ -132,22 +138,12 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
   };
 
   // 插入图片
-  const insertImage = () => {
-    if (imageUrl.trim() && editor) {
-      // 创建图片 HTML
-      const imgHTML = `<img src="${imageUrl}" alt="图片" />`;
-
-      // 在光标位置插入图片
-      editor
-        .chain()
-        .focus()
-        .insertContent(imgHTML)
-        .run();
-
-      setImageUrl('');
-      setShowImageModal(false);
+  const insertImage = useCallback(() => {
+    const url = window.prompt('请输入图片 URL');
+    if (url) {
+      editor?.chain().focus().setImage({ src: url }).run();
     }
-  };
+  }, [editor]);
 
   // 设置字体
   const setFont = () => {
@@ -432,7 +428,8 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
                 <LinkIcon className="w-5 h-5" />
               </button>
               <button
-                onClick={() => setShowImageModal(true)}
+                // onClick={() => setShowImageModal(true)}
+                onClick={() => insertImage()}
                 className="p-2 rounded hover:bg-gray-100"
                 title="插入图片"
               >
@@ -608,7 +605,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
         </div>
       )}
 
-      {/* 插入图片模态框 */}
+      {/* 插入图片模态框
       {showImageModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full">
@@ -636,7 +633,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* 字体设置模态框 */}
       {showFontModal && (
