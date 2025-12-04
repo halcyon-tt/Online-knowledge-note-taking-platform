@@ -46,7 +46,7 @@ export default function DashboardPage() {
 
       const { data } = await supabase
         .from("notes")
-        .insert({ title: "未命名笔记", content: "" })
+        .insert({ title: "未命名笔记", content: "", user_id: '4af03726-c537-4a07-a9a9-3c05a266954a' })
         .select()
         .single();
       if (data) {

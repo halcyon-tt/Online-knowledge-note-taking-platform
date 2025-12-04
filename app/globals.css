@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 /* 使用 tailwindcss-animate 替代 tw-animate-css，或直接移除 */
 /* 如果你安装了 tw-animate-css 就保留下面这行，否则删除 */
 /* @import "tw-animate-css"; */
