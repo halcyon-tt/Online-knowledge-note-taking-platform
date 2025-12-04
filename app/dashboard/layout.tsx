@@ -37,29 +37,10 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [notes, setNotes] = useState<Note[]>([]);
-
-  useEffect(() => {
-    async function loadNotes() {
-      if (!isSupabaseConfigured()) {
-        setNotes(getLocalNotes());
-      } else {
-        const supabase = createClient();
-        if (supabase) {
-          const { data } = await supabase
-            .from("notes")
-            .select("*")
-            .order("updated_at", { ascending: false });
-          setNotes((data as Note[]) || []);
-        }
-      }
-    }
-    loadNotes();
-  }, []);
 
   return (
     <SidebarProvider>
-      <AppSidebar notes={notes} />
+      <AppSidebar />
       <MainContent>{children}</MainContent>
     </SidebarProvider>
   );

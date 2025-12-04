@@ -64,7 +64,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
       Link.configure({
         openOnClick: false,
         HTMLAttributes: {
-          class: 'text-blue-500 hover:text-blue-700 underline',
+          class: 'text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline',
         },
       }),
       Placeholder.configure({
@@ -74,8 +74,11 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
         types: ['textStyle'],
       }),
       Image.configure({
-        inline: false, // 图片作为块级元素（默认）
-        allowBase64: true, // 允许 base64 图片（用于本地预览）
+        inline: false,
+        allowBase64: true,
+        HTMLAttributes: {
+          class: 'rounded-lg border border-gray-300 dark:border-gray-600',
+        },
       }),
     ],
     content: initialContent,
@@ -91,6 +94,11 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
       if (onChange) {
         onChange(html);
       }
+    },
+    editorProps: {
+      attributes: {
+        class: 'prose prose-lg dark:prose-invert max-w-none focus:outline-none min-h-[600px] p-6',
+      },
     },
   });
 
@@ -120,23 +128,6 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
   const redo = () => editor?.chain().focus().redo().run();
   const setHorizontalRule = () => editor?.chain().focus().setHorizontalRule().run();
 
-  // 插入链接
-  // const insertLink = () => {
-  //   if (linkUrl.trim() && editor) {
-  //     if (editor.isActive('link')) {
-  //       editor.chain().focus().unsetLink().run();
-  //     } else {
-  //       editor
-  //         .chain()
-  //         .focus()
-  //         .setLink({ href: linkUrl })
-  //         .run();
-  //     }
-  //     setLinkUrl('');
-  //     setShowLinkModal(false);
-  //   }
-  // };
-
   // 插入图片
   const insertImage = useCallback(() => {
     const url = window.prompt('请输入图片 URL');
@@ -145,7 +136,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
     }
   }, [editor]);
 
-  // 插入图片
+  // 插入链接
   const insertLink = useCallback(() => {
     const url = window.prompt('请输入 URL');
     if (url) {
@@ -307,40 +298,42 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
   }, [editor]);
 
   if (!editor) {
-    return <div className="min-h-screen bg-gray-50 p-8 flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-600">编辑器加载中...</p>
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">编辑器加载中...</p>
+        </div>
       </div>
-    </div>;
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
       {/* 顶部工具栏 */}
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm">
+      <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3">
           {/* 主工具栏 */}
           <div className="flex flex-wrap items-center gap-2 mb-3">
             {/* 文本样式 */}
-            <div className="flex items-center space-x-1 border-r border-gray-200 pr-3">
+            <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-700 pr-3">
               <button
                 onClick={toggleBold}
-                className={`p-2 rounded hover:bg-gray-100 ${editor.isActive('bold') ? 'bg-gray-100 text-blue-600' : ''}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('bold') ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
                 title="粗体 (Ctrl+B)"
               >
                 <Bold className="w-5 h-5" />
               </button>
               <button
                 onClick={toggleItalic}
-                className={`p-2 rounded hover:bg-gray-100 ${editor.isActive('italic') ? 'bg-gray-100 text-blue-600' : ''}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('italic') ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
                 title="斜体 (Ctrl+I)"
               >
                 <Italic className="w-5 h-5" />
               </button>
               <button
                 onClick={toggleStrike}
-                className={`p-2 rounded hover:bg-gray-100 ${editor.isActive('strike') ? 'bg-gray-100 text-blue-600' : ''}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('strike') ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
                 title="删除线"
               >
                 <Strikethrough className="w-5 h-5" />
@@ -348,10 +341,10 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
             </div>
 
             {/* 字体 */}
-            <div className="flex items-center space-x-1 border-r border-gray-200 pr-3">
+            <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-700 pr-3">
               <button
                 onClick={() => setShowFontModal(true)}
-                className="p-2 rounded hover:bg-gray-100"
+                className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                 title="设置字体"
               >
                 <Type className="w-5 h-5" />
@@ -359,31 +352,31 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
             </div>
 
             {/* 标题 */}
-            <div className="flex items-center space-x-1 border-r border-gray-200 pr-3">
+            <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-700 pr-3">
               <button
                 onClick={toggleHeading1}
-                className={`p-2 rounded hover:bg-gray-100 ${editor.isActive('heading', { level: 1 }) ? 'bg-gray-100 text-blue-600' : ''}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('heading', { level: 1 }) ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
                 title="一级标题 (Shift+1)"
               >
                 <span className="text-sm font-bold">H1</span>
               </button>
               <button
                 onClick={toggleHeading2}
-                className={`p-2 rounded hover:bg-gray-100 ${editor.isActive('heading', { level: 2 }) ? 'bg-gray-100 text-blue-600' : ''}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('heading', { level: 2 }) ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
                 title="二级标题 (Shift+2)"
               >
                 <span className="text-sm font-bold">H2</span>
               </button>
               <button
                 onClick={toggleHeading3}
-                className={`p-2 rounded hover:bg-gray-100 ${editor.isActive('heading', { level: 3 }) ? 'bg-gray-100 text-blue-600' : ''}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('heading', { level: 3 }) ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
                 title="三级标题 (Shift+3)"
               >
                 <span className="text-sm font-bold">H3</span>
               </button>
               <button
                 onClick={setParagraph}
-                className={`p-2 rounded hover:bg-gray-100 ${editor.isActive('paragraph') ? 'bg-gray-100 text-blue-600' : ''}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('paragraph') ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
                 title="段落"
               >
                 <span className="text-sm">正文</span>
@@ -391,17 +384,17 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
             </div>
 
             {/* 列表 */}
-            <div className="flex items-center space-x-1 border-r border-gray-200 pr-3">
+            <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-700 pr-3">
               <button
                 onClick={toggleBulletList}
-                className={`p-2 rounded hover:bg-gray-100 ${editor.isActive('bulletList') ? 'bg-gray-100 text-blue-600' : ''}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('bulletList') ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
                 title="无序列表"
               >
                 <List className="w-5 h-5" />
               </button>
               <button
                 onClick={toggleOrderedList}
-                className={`p-2 rounded hover:bg-gray-100 ${editor.isActive('orderedList') ? 'bg-gray-100 text-blue-600' : ''}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('orderedList') ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
                 title="有序列表"
               >
                 <ListOrdered className="w-5 h-5" />
@@ -409,17 +402,17 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
             </div>
 
             {/* 引用和代码 */}
-            <div className="flex items-center space-x-1 border-r border-gray-200 pr-3">
+            <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-700 pr-3">
               <button
                 onClick={toggleBlockquote}
-                className={`p-2 rounded hover:bg-gray-100 ${editor.isActive('blockquote') ? 'bg-gray-100 text-blue-600' : ''}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('blockquote') ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
                 title="引用"
               >
                 <Quote className="w-5 h-5" />
               </button>
               <button
                 onClick={toggleCodeBlock}
-                className={`p-2 rounded hover:bg-gray-100 ${editor.isActive('codeBlock') ? 'bg-gray-100 text-blue-600' : ''}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('codeBlock') ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
                 title="代码块"
               >
                 <Code className="w-5 h-5" />
@@ -427,19 +420,17 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
             </div>
 
             {/* 链接和图片 */}
-            <div className="flex items-center space-x-1 border-r border-gray-200 pr-3">
+            <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-700 pr-3">
               <button
-                // onClick={() => setShowLinkModal(true)}
-                onClick={() => insertLink()}
-                className={`p-2 rounded hover:bg-gray-100 ${editor.isActive('link') ? 'bg-gray-100 text-blue-600' : ''}`}
+                onClick={insertLink}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('link') ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
                 title="插入链接"
               >
                 <LinkIcon className="w-5 h-5" />
               </button>
               <button
-                // onClick={() => setShowImageModal(true)}
-                onClick={() => insertImage()}
-                className="p-2 rounded hover:bg-gray-100"
+                onClick={insertImage}
+                className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                 title="插入图片"
               >
                 <ImageIcon className="w-5 h-5" />
@@ -447,10 +438,10 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
             </div>
 
             {/* 分隔线 */}
-            <div className="flex items-center space-x-1 border-r border-gray-200 pr-3">
+            <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-700 pr-3">
               <button
                 onClick={setHorizontalRule}
-                className="p-2 rounded hover:bg-gray-100"
+                className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                 title="分隔线"
               >
                 <Minus className="w-5 h-5" />
@@ -458,10 +449,10 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
             </div>
 
             {/* 撤销重做 */}
-            <div className="flex items-center space-x-1 border-r border-gray-200 pr-3">
+            <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-700 pr-3">
               <button
                 onClick={undo}
-                className="p-2 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="撤销 (Ctrl+Z)"
                 disabled={!editor.can().undo()}
               >
@@ -469,7 +460,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
               </button>
               <button
                 onClick={redo}
-                className="p-2 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="重做 (Ctrl+Y)"
                 disabled={!editor.can().redo()}
               >
@@ -480,7 +471,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
             {/* 清除格式 */}
             <button
               onClick={clearFormat}
-              className="p-2 rounded hover:bg-gray-100"
+              className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
               title="清除格式"
             >
               <Highlighter className="w-5 h-5" />
@@ -490,7 +481,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
           {/* 操作按钮栏 */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
                 字数: {wordCount} | 字符: {charCount}
               </span>
             </div>
@@ -498,37 +489,39 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
             <div className="flex items-center space-x-2">
               <button
                 onClick={saveToLocalStorage}
-                className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                className="px-3 py-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800"
               >
                 保存
               </button>
               <button
                 onClick={loadFromLocalStorage}
-                className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200"
+                className="px-3 py-1 text-sm bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800"
               >
                 加载
               </button>
               <button
                 onClick={copyToClipboard}
-                className="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded hover:bg-purple-200"
+                className="px-3 py-1 text-sm bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded hover:bg-purple-200 dark:hover:bg-purple-800"
               >
                 复制
               </button>
               <button
                 onClick={exportToMarkdown}
-                className="px-3 py-1 text-sm bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200"
+                className="px-3 py-1 text-sm bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded hover:bg-indigo-200 dark:hover:bg-indigo-800"
               >
                 导出Markdown
               </button>
               <button
                 onClick={resetEditor}
-                className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200"
+                className="px-3 py-1 text-sm bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-800"
               >
                 清空
               </button>
               <button
                 onClick={() => setIsPreview(!isPreview)}
-                className={`px-3 py-1 text-sm rounded ${isPreview ? 'bg-gray-200 text-gray-800' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-3 py-1 text-sm rounded ${isPreview 
+                  ? 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200' 
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
               >
                 {isPreview ? '编辑模式' : '预览模式'}
               </button>
@@ -541,8 +534,8 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
       <div className="max-w-7xl mx-auto px-4 py-6">
         {isPreview ? (
           // 预览模式
-          <div className="bg-white rounded-lg border border-gray-200 p-6 min-h-[600px]">
-            <div className="prose prose-lg max-w-none">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 min-h-[600px]">
+            <div className="prose prose-lg dark:prose-invert max-w-none">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {content
                   .replace(/<h1>(.*?)<\/h1>/g, '# $1\n\n')
@@ -570,16 +563,16 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
           </div>
         ) : (
           // 编辑模式
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
             <EditorContent
               editor={editor}
-              className="min-h-[600px] p-6 prose prose-lg max-w-none focus:outline-none tiptap-editor"
+              className="tiptap-editor"
             />
           </div>
         )}
 
         {/* 状态提示 */}
-        <div className="mt-4 text-sm text-gray-500">
+        <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
           <p>提示：使用快捷键快速操作（Ctrl+B: 粗体, Ctrl+I: 斜体, Shift+1/2/3: 标题, Ctrl+Z: 撤销, Ctrl+S: 保存）</p>
         </div>
       </div>
@@ -587,25 +580,25 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
       {/* 插入链接模态框 */}
       {showLinkModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4">插入链接</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">插入链接</h3>
             <input
               type="text"
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
               placeholder="输入链接地址 (例如: https://example.com)"
-              className="w-full px-3 py-2 border border-gray-300 rounded mb-4"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded mb-4 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             />
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowLinkModal(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
               >
                 取消
               </button>
               <button
                 onClick={insertLink}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                className="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded hover:bg-blue-600 dark:hover:bg-blue-700"
               >
                 插入
               </button>
@@ -614,41 +607,11 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
         </div>
       )}
 
-      {/* 插入图片模态框
-      {showImageModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4">插入图片</h3>
-            <input
-              type="text"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="输入图片地址 (例如: https://example.com/image.jpg)"
-              className="w-full px-3 py-2 border border-gray-300 rounded mb-4"
-            />
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowImageModal(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                取消
-              </button>
-              <button
-                onClick={insertImage}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                插入
-              </button>
-            </div>
-          </div>
-        </div>
-      )} */}
-
       {/* 字体设置模态框 */}
       {showFontModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4">设置字体</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">设置字体</h3>
             <div className="mb-4">
               <div className="grid grid-cols-2 gap-2 mb-4">
                 <button
@@ -656,7 +619,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
                     editor?.chain().focus().setFontFamily('Arial').run();
                     setShowFontModal(false);
                   }}
-                  className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-100 text-left"
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-left text-gray-900 dark:text-gray-100"
                 >
                   Arial
                 </button>
@@ -665,7 +628,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
                     editor?.chain().focus().setFontFamily('Times New Roman').run();
                     setShowFontModal(false);
                   }}
-                  className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-100 text-left"
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-left text-gray-900 dark:text-gray-100"
                 >
                   Times New Roman
                 </button>
@@ -674,7 +637,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
                     editor?.chain().focus().setFontFamily('Courier New').run();
                     setShowFontModal(false);
                   }}
-                  className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-100 text-left"
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-left text-gray-900 dark:text-gray-100"
                 >
                   Courier New
                 </button>
@@ -683,7 +646,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
                     editor?.chain().focus().setFontFamily('Georgia').run();
                     setShowFontModal(false);
                   }}
-                  className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-100 text-left"
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-left text-gray-900 dark:text-gray-100"
                 >
                   Georgia
                 </button>
@@ -693,19 +656,19 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
                 value={fontFamily}
                 onChange={(e) => setFontFamily(e.target.value)}
                 placeholder="输入字体名称 (例如: 宋体, 微软雅黑)"
-                className="w-full px-3 py-2 border border-gray-300 rounded"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               />
             </div>
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowFontModal(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
               >
                 取消
               </button>
               <button
                 onClick={setFont}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                className="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded hover:bg-blue-600 dark:hover:bg-blue-700"
               >
                 设置
               </button>
