@@ -109,12 +109,9 @@ export default function NotePage({ params }: PageProps) {
   }
 
   return (
-
-
     <NoteEditor
-      initialContent={note.content || ''}
+      initialContent={note.content || ""}
       onChange={handleContentChange}
     />
-
   );
 }

@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Link from '@tiptap/extension-link';
-import Placeholder from '@tiptap/extension-placeholder';
-import FontFamily from '@tiptap/extension-font-family';
-import Image from '@tiptap/extension-image';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { useState, useEffect, useCallback } from "react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
+import Placeholder from "@tiptap/extension-placeholder";
+import FontFamily from "@tiptap/extension-font-family";
+import Image from "@tiptap/extension-image";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import {
   Bold,
@@ -25,24 +25,24 @@ import {
   Highlighter,
   Type,
   Minus,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface TiptapProps {
   initialContent?: string;
   onChange?: (content: string) => void;
 }
 
-export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
+export default function Tiptap({ initialContent = "", onChange }: TiptapProps) {
   const [content, setContent] = useState(initialContent);
   const [isPreview, setIsPreview] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
-  const [imageUrl, setImageUrl] = useState('');
-  const [linkUrl, setLinkUrl] = useState('');
+  const [imageUrl, setImageUrl] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [showFontModal, setShowFontModal] = useState(false);
-  const [fontFamily, setFontFamily] = useState('');
+  const [fontFamily, setFontFamily] = useState("");
 
   // 初始化编辑器
   const editor = useEditor({
@@ -68,10 +68,10 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
         },
       }),
       Placeholder.configure({
-        placeholder: '开始写作...',
+        placeholder: "开始写作...",
       }),
       FontFamily.configure({
-        types: ['textStyle'],
+        types: ["textStyle"],
       }),
       Image.configure({
         inline: false,
@@ -88,7 +88,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
 
       // 手动计算字符数和字数
       setContent(html);
-      setWordCount(text.split(/\s+/).filter(word => word.length > 0).length);
+      setWordCount(text.split(/\s+/).filter((word) => word.length > 0).length);
       setCharCount(text.length);
 
       if (onChange) {
@@ -107,30 +107,35 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
   const toggleItalic = () => editor?.chain().focus().toggleItalic().run();
   const toggleStrike = () => editor?.chain().focus().toggleStrike().run();
   const toggleHeading1 = () => {
-    console.log('设置一级标题');
+    console.log("设置一级标题");
     editor?.chain().focus().toggleHeading({ level: 1 }).run();
   };
   const toggleHeading2 = () => {
-    console.log('设置二级标题');
+    console.log("设置二级标题");
     editor?.chain().focus().toggleHeading({ level: 2 }).run();
   };
   const toggleHeading3 = () => {
-    console.log('设置三级标题');
+    console.log("设置三级标题");
     editor?.chain().focus().toggleHeading({ level: 3 }).run();
   };
-  const toggleHeading4 = () => editor?.chain().focus().toggleHeading({ level: 4 }).run();
-  const toggleBulletList = () => editor?.chain().focus().toggleBulletList().run();
-  const toggleOrderedList = () => editor?.chain().focus().toggleOrderedList().run();
-  const toggleBlockquote = () => editor?.chain().focus().toggleBlockquote().run();
+  const toggleHeading4 = () =>
+    editor?.chain().focus().toggleHeading({ level: 4 }).run();
+  const toggleBulletList = () =>
+    editor?.chain().focus().toggleBulletList().run();
+  const toggleOrderedList = () =>
+    editor?.chain().focus().toggleOrderedList().run();
+  const toggleBlockquote = () =>
+    editor?.chain().focus().toggleBlockquote().run();
   const toggleCode = () => editor?.chain().focus().toggleCode().run();
   const toggleCodeBlock = () => editor?.chain().focus().toggleCodeBlock().run();
   const undo = () => editor?.chain().focus().undo().run();
   const redo = () => editor?.chain().focus().redo().run();
-  const setHorizontalRule = () => editor?.chain().focus().setHorizontalRule().run();
+  const setHorizontalRule = () =>
+    editor?.chain().focus().setHorizontalRule().run();
 
   // 插入图片
   const insertImage = useCallback(() => {
-    const url = window.prompt('请输入图片 URL');
+    const url = window.prompt("请输入图片 URL");
     if (url) {
       editor?.chain().focus().setImage({ src: url }).run();
     }
@@ -138,7 +143,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
 
   // 插入链接
   const insertLink = useCallback(() => {
-    const url = window.prompt('请输入 URL');
+    const url = window.prompt("请输入 URL");
     if (url) {
       editor?.chain().focus().setLink({ href: url }).run();
     }
@@ -148,7 +153,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
   const setFont = () => {
     if (fontFamily.trim() && editor) {
       editor.chain().focus().setFontFamily(fontFamily).run();
-      setFontFamily('');
+      setFontFamily("");
       setShowFontModal(false);
     }
   };
@@ -165,37 +170,37 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
 
   // 导出为Markdown
   const exportToMarkdown = () => {
-    if (!editor) return '';
+    if (!editor) return "";
 
     const html = editor.getHTML();
     let markdown = html
-      .replace(/<h1>(.*?)<\/h1>/g, '# $1\n\n')
-      .replace(/<h2>(.*?)<\/h2>/g, '## $1\n\n')
-      .replace(/<h3>(.*?)<\/h3>/g, '### $1\n\n')
-      .replace(/<h4>(.*?)<\/h4>/g, '#### $1\n\n')
-      .replace(/<h5>(.*?)<\/h5>/g, '##### $1\n\n')
-      .replace(/<h6>(.*?)<\/h6>/g, '###### $1\n\n')
-      .replace(/<p>(.*?)<\/p>/g, '$1\n\n')
-      .replace(/<strong>(.*?)<\/strong>/g, '**$1**')
-      .replace(/<em>(.*?)<\/em>/g, '*$1*')
-      .replace(/<code>(.*?)<\/code>/g, '`$1`')
-      .replace(/<blockquote>(.*?)<\/blockquote>/g, '> $1')
-      .replace(/<ul>(.*?)<\/ul>/g, '$1')
-      .replace(/<li>(.*?)<\/li>/g, '- $1\n')
-      .replace(/<ol>(.*?)<\/ol>/g, '$1')
-      .replace(/<li>(.*?)<\/li>/g, '1. $1\n')
-      .replace(/<a href="(.*?)">(.*?)<\/a>/g, '[$2]($1)')
-      .replace(/<img src="(.*?)".*?>/g, '![图片]($1)')
-      .replace(/<hr>/g, '\n---\n')
-      .replace(/<br>/g, '\n')
-      .replace(/<[^>]*>/g, '');
+      .replace(/<h1>(.*?)<\/h1>/g, "# $1\n\n")
+      .replace(/<h2>(.*?)<\/h2>/g, "## $1\n\n")
+      .replace(/<h3>(.*?)<\/h3>/g, "### $1\n\n")
+      .replace(/<h4>(.*?)<\/h4>/g, "#### $1\n\n")
+      .replace(/<h5>(.*?)<\/h5>/g, "##### $1\n\n")
+      .replace(/<h6>(.*?)<\/h6>/g, "###### $1\n\n")
+      .replace(/<p>(.*?)<\/p>/g, "$1\n\n")
+      .replace(/<strong>(.*?)<\/strong>/g, "**$1**")
+      .replace(/<em>(.*?)<\/em>/g, "*$1*")
+      .replace(/<code>(.*?)<\/code>/g, "`$1`")
+      .replace(/<blockquote>(.*?)<\/blockquote>/g, "> $1")
+      .replace(/<ul>(.*?)<\/ul>/g, "$1")
+      .replace(/<li>(.*?)<\/li>/g, "- $1\n")
+      .replace(/<ol>(.*?)<\/ol>/g, "$1")
+      .replace(/<li>(.*?)<\/li>/g, "1. $1\n")
+      .replace(/<a href="(.*?)">(.*?)<\/a>/g, "[$2]($1)")
+      .replace(/<img src="(.*?)".*?>/g, "![图片]($1)")
+      .replace(/<hr>/g, "\n---\n")
+      .replace(/<br>/g, "\n")
+      .replace(/<[^>]*>/g, "");
 
     // 下载文件
-    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const blob = new Blob([markdown], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'document.md';
+    a.download = "document.md";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -209,9 +214,9 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
     const text = editor.getText();
     try {
       await navigator.clipboard.writeText(text);
-      alert('内容已复制到剪贴板！');
+      alert("内容已复制到剪贴板！");
     } catch (err) {
-      console.error('复制失败:', err);
+      console.error("复制失败:", err);
     }
   };
 
@@ -220,24 +225,24 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
     if (!editor) return;
 
     const content = editor.getHTML();
-    localStorage.setItem('tiptap-content', content);
-    alert('内容已保存到本地存储！');
+    localStorage.setItem("tiptap-content", content);
+    alert("内容已保存到本地存储！");
   };
 
   // 从本地存储加载
   const loadFromLocalStorage = () => {
-    const savedContent = localStorage.getItem('tiptap-content');
+    const savedContent = localStorage.getItem("tiptap-content");
     if (savedContent && editor) {
       editor.commands.setContent(savedContent);
-      alert('内容已从本地存储加载！');
+      alert("内容已从本地存储加载！");
     }
   };
 
   // 重置编辑器
   const resetEditor = () => {
-    if (confirm('确定要清空编辑器吗？')) {
+    if (confirm("确定要清空编辑器吗？")) {
       editor?.commands.clearContent();
-      setContent('');
+      setContent("");
     }
   };
 
@@ -246,33 +251,33 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey) {
         switch (e.key) {
-          case 'b':
+          case "b":
             e.preventDefault();
             toggleBold();
             break;
-          case 'i':
+          case "i":
             e.preventDefault();
             toggleItalic();
             break;
-          case '1':
+          case "1":
             if (e.shiftKey) {
               e.preventDefault();
               toggleHeading1();
             }
             break;
-          case '2':
+          case "2":
             if (e.shiftKey) {
               e.preventDefault();
               toggleHeading2();
             }
             break;
-          case '3':
+          case "3":
             if (e.shiftKey) {
               e.preventDefault();
               toggleHeading3();
             }
             break;
-          case 'z':
+          case "z":
             if (e.shiftKey) {
               e.preventDefault();
               redo();
@@ -281,11 +286,11 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
               undo();
             }
             break;
-          case 'y':
+          case "y":
             e.preventDefault();
             redo();
             break;
-          case 's':
+          case "s":
             e.preventDefault();
             saveToLocalStorage();
             break;
@@ -293,8 +298,8 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [editor]);
 
   if (!editor) {
@@ -523,7 +528,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
                   ? 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200' 
                   : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
               >
-                {isPreview ? '编辑模式' : '预览模式'}
+                {isPreview ? "编辑模式" : "预览模式"}
               </button>
             </div>
           </div>
@@ -538,26 +543,26 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
             <div className="prose prose-lg dark:prose-invert max-w-none">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {content
-                  .replace(/<h1>(.*?)<\/h1>/g, '# $1\n\n')
-                  .replace(/<h2>(.*?)<\/h2>/g, '## $1\n\n')
-                  .replace(/<h3>(.*?)<\/h3>/g, '### $1\n\n')
-                  .replace(/<h4>(.*?)<\/h4>/g, '#### $1\n\n')
-                  .replace(/<h5>(.*?)<\/h5>/g, '##### $1\n\n')
-                  .replace(/<h6>(.*?)<\/h6>/g, '###### $1\n\n')
-                  .replace(/<p>(.*?)<\/p>/g, '$1\n\n')
-                  .replace(/<strong>(.*?)<\/strong>/g, '**$1**')
-                  .replace(/<em>(.*?)<\/em>/g, '*$1*')
-                  .replace(/<code>(.*?)<\/code>/g, '`$1`')
-                  .replace(/<blockquote>(.*?)<\/blockquote>/g, '> $1')
-                  .replace(/<ul>(.*?)<\/ul>/g, '$1')
-                  .replace(/<li>(.*?)<\/li>/g, '- $1\n')
-                  .replace(/<ol>(.*?)<\/ol>/g, '$1')
-                  .replace(/<li>(.*?)<\/li>/g, '1. $1\n')
-                  .replace(/<a href="(.*?)">(.*?)<\/a>/g, '[$2]($1)')
-                  .replace(/<img src="(.*?)".*?>/g, '![图片]($1)')
-                  .replace(/<hr>/g, '\n---\n')
-                  .replace(/<br>/g, '\n')
-                  .replace(/<[^>]*>/g, '')}
+                  .replace(/<h1>(.*?)<\/h1>/g, "# $1\n\n")
+                  .replace(/<h2>(.*?)<\/h2>/g, "## $1\n\n")
+                  .replace(/<h3>(.*?)<\/h3>/g, "### $1\n\n")
+                  .replace(/<h4>(.*?)<\/h4>/g, "#### $1\n\n")
+                  .replace(/<h5>(.*?)<\/h5>/g, "##### $1\n\n")
+                  .replace(/<h6>(.*?)<\/h6>/g, "###### $1\n\n")
+                  .replace(/<p>(.*?)<\/p>/g, "$1\n\n")
+                  .replace(/<strong>(.*?)<\/strong>/g, "**$1**")
+                  .replace(/<em>(.*?)<\/em>/g, "*$1*")
+                  .replace(/<code>(.*?)<\/code>/g, "`$1`")
+                  .replace(/<blockquote>(.*?)<\/blockquote>/g, "> $1")
+                  .replace(/<ul>(.*?)<\/ul>/g, "$1")
+                  .replace(/<li>(.*?)<\/li>/g, "- $1\n")
+                  .replace(/<ol>(.*?)<\/ol>/g, "$1")
+                  .replace(/<li>(.*?)<\/li>/g, "1. $1\n")
+                  .replace(/<a href="(.*?)">(.*?)<\/a>/g, "[$2]($1)")
+                  .replace(/<img src="(.*?)".*?>/g, "![图片]($1)")
+                  .replace(/<hr>/g, "\n---\n")
+                  .replace(/<br>/g, "\n")
+                  .replace(/<[^>]*>/g, "")}
               </ReactMarkdown>
             </div>
           </div>
@@ -616,7 +621,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
               <div className="grid grid-cols-2 gap-2 mb-4">
                 <button
                   onClick={() => {
-                    editor?.chain().focus().setFontFamily('Arial').run();
+                    editor?.chain().focus().setFontFamily("Arial").run();
                     setShowFontModal(false);
                   }}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-left text-gray-900 dark:text-gray-100"
@@ -625,7 +630,11 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
                 </button>
                 <button
                   onClick={() => {
-                    editor?.chain().focus().setFontFamily('Times New Roman').run();
+                    editor
+                      ?.chain()
+                      .focus()
+                      .setFontFamily("Times New Roman")
+                      .run();
                     setShowFontModal(false);
                   }}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-left text-gray-900 dark:text-gray-100"
@@ -634,7 +643,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
                 </button>
                 <button
                   onClick={() => {
-                    editor?.chain().focus().setFontFamily('Courier New').run();
+                    editor?.chain().focus().setFontFamily("Courier New").run();
                     setShowFontModal(false);
                   }}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-left text-gray-900 dark:text-gray-100"
@@ -643,7 +652,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
                 </button>
                 <button
                   onClick={() => {
-                    editor?.chain().focus().setFontFamily('Georgia').run();
+                    editor?.chain().focus().setFontFamily("Georgia").run();
                     setShowFontModal(false);
                   }}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-left text-gray-900 dark:text-gray-100"

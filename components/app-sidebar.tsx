@@ -1,11 +1,17 @@
 "use client";
 
+import type React from "react";
+
 import { useEffect, useState } from "react";
-import { FileText, Plus, Home, Loader2 } from "lucide-react";
+import { FileText, Plus, Home, Loader2, Pencil, Check, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { createLocalNote, getLocalNotes } from "@/lib/local-storage";
+import {
+  createLocalNote,
+  getLocalNotes,
+  updateLocalNote,
+} from "@/lib/local-storage";
 import {
   Sidebar,
   SidebarContent,
@@ -19,6 +25,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { Note } from "@/types/note";
 
@@ -30,6 +37,8 @@ export function AppSidebar() {
   const router = useRouter();
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
   const useLocalStorage = !isSupabaseConfigured();
 
   // 获取用户笔记
@@ -38,10 +47,8 @@ export function AppSidebar() {
       setLoading(true);
       try {
         if (useLocalStorage) {
-          // 本地存储模式：获取所有本地笔记
           setNotes(getLocalNotes());
         } else {
-          // Supabase 模式：获取固定用户的笔记
           const supabase = createClient();
           if (!supabase) {
             setNotes([]);
@@ -51,7 +58,7 @@ export function AppSidebar() {
           const { data, error } = await supabase
             .from("notes")
             .select("*")
-            .eq("user_id", DEFAULT_USER_ID) // 使用固定用户ID
+            .eq("user_id", DEFAULT_USER_ID)
             .order("updated_at", { ascending: false });
 
           if (error) {
@@ -76,12 +83,10 @@ export function AppSidebar() {
   const handleCreateNote = async () => {
     if (useLocalStorage) {
       const newNote = createLocalNote({ title: "未命名笔记", content: "" });
-      // 重新加载笔记列表
       setNotes(getLocalNotes());
       router.push(`/dashboard/notes/${newNote.id}`);
       router.refresh();
     } else {
-      // Supabase 模式
       const supabase = createClient();
       if (!supabase) {
         console.error("No Supabase client");
@@ -94,7 +99,7 @@ export function AppSidebar() {
           .insert({
             title: "未命名笔记",
             content: "",
-            user_id: DEFAULT_USER_ID, // 使用固定用户ID
+            user_id: DEFAULT_USER_ID,
             updated_at: new Date().toISOString(),
           })
           .select()
@@ -107,9 +112,7 @@ export function AppSidebar() {
         }
 
         if (data) {
-          // 添加新笔记到列表
-          setNotes(prev => [data as Note, ...prev]);
-          // 跳转到新笔记页面
+          setNotes((prev) => [data as Note, ...prev]);
           router.push(`/dashboard/notes/${data.id}`);
           router.refresh();
         }
@@ -117,6 +120,65 @@ export function AppSidebar() {
         console.error("Unexpected error:", error);
         alert("创建笔记时发生未知错误");
       }
+    }
+  };
+
+  const handleStartEdit = (e: React.MouseEvent, note: Note) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingId(note.id);
+    setEditingTitle(note.title || "");
+  };
+
+  const handleSaveTitle = async (noteId: string) => {
+    const trimmedTitle = editingTitle.trim() || "未命名笔记";
+
+    if (useLocalStorage) {
+      updateLocalNote(noteId, { title: trimmedTitle });
+      setNotes(getLocalNotes());
+    } else {
+      const supabase = createClient();
+      if (!supabase) return;
+
+      const { error } = await supabase
+        .from("notes")
+        .update({ title: trimmedTitle, updated_at: new Date().toISOString() })
+        .eq("id", noteId);
+
+      if (error) {
+        console.error("Error updating title:", error);
+        return;
+      }
+
+      setNotes((prev) =>
+        prev.map((n) =>
+          n.id === noteId
+            ? {
+                ...n,
+                title: trimmedTitle,
+                updated_at: new Date().toISOString(),
+              }
+            : n
+        )
+      );
+    }
+
+    setEditingId(null);
+    setEditingTitle("");
+    router.refresh();
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditingTitle("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, noteId: string) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSaveTitle(noteId);
+    } else if (e.key === "Escape") {
+      handleCancelEdit();
     }
   };
 
@@ -165,23 +227,53 @@ export function AppSidebar() {
                 <>
                   {notes.map((note) => (
                     <SidebarMenuItem key={note.id}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={pathname === `/dashboard/notes/${note.id}`}
-                      >
-                        <Link href={`/dashboard/notes/${note.id}`}>
-                          <FileText className="h-4 w-4 flex-shrink-0" />
-                          <span className="truncate flex-1">
-                            {note.title || "未命名笔记"}
-                          </span>
-                          <span className="text-xs text-muted-foreground ml-2">
-                            {new Date(note.updated_at).toLocaleDateString("zh-CN", {
-                              month: "numeric",
-                              day: "numeric",
-                            })}
-                          </span>
-                        </Link>
-                      </SidebarMenuButton>
+                      {editingId === note.id ? (
+                        <div className="flex items-center gap-1 px-2 py-1.5">
+                          <Input
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, note.id)}
+                            className="h-7 text-sm flex-1"
+                            autoFocus
+                            placeholder="笔记标题"
+                          />
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 shrink-0"
+                            onClick={() => handleSaveTitle(note.id)}
+                          >
+                            <Check className="h-3.5 w-3.5 text-green-600" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 shrink-0"
+                            onClick={handleCancelEdit}
+                          >
+                            <X className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <SidebarMenuButton
+                          asChild
+                          isActive={pathname === `/dashboard/notes/${note.id}`}
+                          className="group"
+                        >
+                          <Link href={`/dashboard/notes/${note.id}`}>
+                            <FileText className="h-4 w-4 flex-shrink-0" />
+                            <span className="truncate flex-1">
+                              {note.title || "未命名笔记"}
+                            </span>
+                            <button
+                              onClick={(e) => handleStartEdit(e, note)}
+                              className="h-5 w-5 shrink-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-accent transition-opacity"
+                            >
+                              <Pencil className="h-3 w-3 text-muted-foreground" />
+                            </button>
+                          </Link>
+                        </SidebarMenuButton>
+                      )}
                     </SidebarMenuItem>
                   ))}
                   {notes.length === 0 && (
