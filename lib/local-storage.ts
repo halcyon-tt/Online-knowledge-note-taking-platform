@@ -1,6 +1,7 @@
-import type { Note } from "@/types/note";
+import type { Note, Tag } from "@/types/note";
 
 const STORAGE_KEY = "local_notes";
+const TAGS_STORAGE_KEY = "local_tags"; // 添加标签存储键
 
 // 获取所有笔记
 export function getLocalNotes(): Note[] {
@@ -62,4 +63,122 @@ export function deleteLocalNote(id: string): boolean {
   if (filtered.length === notes.length) return false;
   saveLocalNotes(filtered);
   return true;
+}
+
+// 预设标签颜色
+const TAG_COLORS = [
+  "bg-blue-500",
+  "bg-green-500",
+  "bg-yellow-500",
+  "bg-red-500",
+  "bg-purple-500",
+  "bg-pink-500",
+  "bg-indigo-500",
+  "bg-cyan-500",
+];
+
+// 获取所有标签
+export function getLocalTags(): Tag[] {
+  if (typeof window === "undefined") return [];
+  const data = localStorage.getItem(TAGS_STORAGE_KEY);
+  return data ? JSON.parse(data) : [];
+}
+
+// 保存所有标签
+export function saveLocalTags(tags: Tag[]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(TAGS_STORAGE_KEY, JSON.stringify(tags));
+}
+
+// 创建标签
+export function createLocalTag(name: string): Tag {
+  const tags = getLocalTags();
+  const colorIndex = tags.length % TAG_COLORS.length;
+  const newTag: Tag = {
+    id: crypto.randomUUID(),
+    name,
+    color: TAG_COLORS[colorIndex],
+  };
+  tags.push(newTag);
+  saveLocalTags(tags);
+  return newTag;
+}
+
+// 删除标签
+export function deleteLocalTag(id: string): boolean {
+  const tags = getLocalTags();
+  const filtered = tags.filter((t) => t.id !== id);
+  if (filtered.length === tags.length) return false;
+  saveLocalTags(filtered);
+
+  // 同时从所有笔记中移除该标签
+  const notes = getLocalNotes();
+  const tag = tags.find((t) => t.id === id);
+  if (tag) {
+    notes.forEach((note) => {
+      if (note.tags?.includes(tag.name)) {
+        note.tags = note.tags.filter((t) => t !== tag.name);
+      }
+    });
+    saveLocalNotes(notes);
+  }
+  return true;
+}
+
+// 为笔记添加标签
+export function addTagToNote(noteId: string, tagName: string): Note | null {
+  const notes = getLocalNotes();
+  const index = notes.findIndex((n) => n.id === noteId);
+  if (index === -1) return null;
+
+  const currentTags = notes[index].tags || [];
+  if (!currentTags.includes(tagName)) {
+    notes[index] = {
+      ...notes[index],
+      tags: [...currentTags, tagName],
+      updated_at: new Date().toISOString(),
+    };
+    saveLocalNotes(notes);
+  }
+  return notes[index];
+}
+
+// 从笔记移除标签
+export function removeTagFromNote(
+  noteId: string,
+  tagName: string
+): Note | null {
+  const notes = getLocalNotes();
+  const index = notes.findIndex((n) => n.id === noteId);
+  if (index === -1) return null;
+
+  notes[index] = {
+    ...notes[index],
+    tags: (notes[index].tags || []).filter((t) => t !== tagName),
+    updated_at: new Date().toISOString(),
+  };
+  saveLocalNotes(notes);
+  return notes[index];
+}
+
+// 搜索笔记
+export function searchLocalNotes(query: string, filterTags?: string[]): Note[] {
+  const notes = getLocalNotes();
+  const lowerQuery = query.toLowerCase();
+
+  return notes.filter((note) => {
+    // 关键字匹配（标题或内容）
+    const matchesQuery =
+      !query ||
+      note.title.toLowerCase().includes(lowerQuery) ||
+      note.content.toLowerCase().includes(lowerQuery);
+
+    // 标签匹配
+    const matchesTags =
+      !filterTags ||
+      filterTags.length === 0 ||
+      filterTags.some((tag) => note.tags?.includes(tag));
+
+    return matchesQuery && matchesTags;
+  });
 }

@@ -2,8 +2,20 @@
 
 import type React from "react";
 
-import { useEffect, useState } from "react";
-import { FileText, Plus, Home, Loader2, Pencil, Check, X } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import {
+  FileText,
+  Plus,
+  Home,
+  Loader2,
+  Pencil,
+  Check,
+  X,
+  Search,
+  Tag,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
@@ -11,6 +23,10 @@ import {
   createLocalNote,
   getLocalNotes,
   updateLocalNote,
+  getLocalTags,
+  createLocalTag,
+  deleteLocalTag,
+  searchLocalNotes,
 } from "@/lib/local-storage";
 import {
   Sidebar,
@@ -27,7 +43,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
-import type { Note } from "@/types/note";
+import { Badge } from "@/components/ui/badge";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import type { Note, Tag as TagType } from "@/types/note";
 
 // 固定用户ID（在实现登录功能前使用）
 const DEFAULT_USER_ID = "4af03726-c537-4a07-a9a9-3c05a266954a";
@@ -41,6 +63,12 @@ export function AppSidebar() {
   const [editingTitle, setEditingTitle] = useState("");
   const useLocalStorage = !isSupabaseConfigured();
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [tags, setTags] = useState<TagType[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [newTagName, setNewTagName] = useState("");
+  const [showTagsSection, setShowTagsSection] = useState(true);
+
   // 获取用户笔记
   useEffect(() => {
     async function loadNotes() {
@@ -48,6 +76,7 @@ export function AppSidebar() {
       try {
         if (useLocalStorage) {
           setNotes(getLocalNotes());
+          setTags(getLocalTags());
         } else {
           const supabase = createClient();
           if (!supabase) {
@@ -67,6 +96,16 @@ export function AppSidebar() {
           } else {
             setNotes((data as Note[]) || []);
           }
+
+          // 加载标签
+          const { data: tagsData } = await supabase
+            .from("tags")
+            .select("*")
+            .order("name");
+
+          if (tagsData) {
+            setTags(tagsData as TagType[]);
+          }
         }
       } catch (error) {
         console.error("Failed to load notes:", error);
@@ -78,6 +117,31 @@ export function AppSidebar() {
 
     loadNotes();
   }, [useLocalStorage]);
+
+  const filteredNotes = useMemo(() => {
+    if (!searchQuery && selectedTags.length === 0) {
+      return notes;
+    }
+
+    if (useLocalStorage) {
+      return searchLocalNotes(searchQuery, selectedTags);
+    }
+
+    // Supabase 模式下的前端筛选
+    const lowerQuery = searchQuery.toLowerCase();
+    return notes.filter((note) => {
+      const matchesQuery =
+        !searchQuery ||
+        note.title.toLowerCase().includes(lowerQuery) ||
+        note.content.toLowerCase().includes(lowerQuery);
+
+      const matchesTags =
+        selectedTags.length === 0 ||
+        selectedTags.some((tag) => note.tags?.includes(tag));
+
+      return matchesQuery && matchesTags;
+    });
+  }, [notes, searchQuery, selectedTags, useLocalStorage]);
 
   // 创建新笔记
   const handleCreateNote = async () => {
@@ -121,6 +185,75 @@ export function AppSidebar() {
         alert("创建笔记时发生未知错误");
       }
     }
+  };
+
+  const handleCreateTag = async () => {
+    const trimmedName = newTagName.trim();
+    if (!trimmedName) return;
+
+    if (tags.some((t) => t.name === trimmedName)) {
+      alert("标签已存在");
+      return;
+    }
+
+    if (useLocalStorage) {
+      createLocalTag(trimmedName);
+      setTags(getLocalTags());
+    } else {
+      const supabase = createClient();
+      if (!supabase) return;
+
+      const { data, error } = await supabase
+        .from("tags")
+        .insert({ name: trimmedName })
+        .select()
+        .single();
+
+      // if (error) {
+      //   console.error("Error creating tag:", error);
+      //   return;
+      // }
+
+      if (data) {
+        setTags((prev) => [...prev, data as TagType]);
+      }
+    }
+    setNewTagName("");
+  };
+
+  const handleDeleteTag = async (tagId: string) => {
+    if (useLocalStorage) {
+      deleteLocalTag(tagId);
+      setTags(getLocalTags());
+      setNotes(getLocalNotes());
+      setSelectedTags((prev) => {
+        const tag = tags.find((t) => t.id === tagId);
+        return tag ? prev.filter((t) => t !== tag.name) : prev;
+      });
+    } else {
+      const supabase = createClient();
+      if (!supabase) return;
+
+      const { error } = await supabase.from("tags").delete().eq("id", tagId);
+      if (error) {
+        console.error("Error deleting tag:", error);
+        return;
+      }
+
+      const deletedTag = tags.find((t) => t.id === tagId);
+      setTags((prev) => prev.filter((t) => t.id !== tagId));
+      if (deletedTag) {
+        setSelectedTags((prev) => prev.filter((t) => t !== deletedTag.name));
+      }
+    }
+  };
+
+  const toggleTagFilter = (tagName: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tagName)
+        ? prev.filter((t) => t !== tagName)
+        : [...prev, tagName]
+    );
   };
 
   const handleStartEdit = (e: React.MouseEvent, note: Note) => {
@@ -196,6 +329,20 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
+          <SidebarGroupContent className="px-2 pt-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="搜索笔记..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 h-8 text-sm"
+              />
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -211,10 +358,111 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
+          <SidebarGroupLabel
+            className="flex items-center justify-between cursor-pointer hover:bg-accent/50 rounded px-2 -mx-2"
+            onClick={() => setShowTagsSection(!showTagsSection)}
+          >
+            <div className="flex items-center gap-1">
+              {showTagsSection ? (
+                <ChevronDown className="h-3 w-3" />
+              ) : (
+                <ChevronRight className="h-3 w-3" />
+              )}
+              <Tag className="h-3.5 w-3.5" />
+              <span>标签</span>
+            </div>
+            <span className="text-xs text-muted-foreground">{tags.length}</span>
+          </SidebarGroupLabel>
+          {showTagsSection && (
+            <SidebarGroupContent>
+              <div className="px-2 space-y-2">
+                {/* 新建标签 */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start h-7 text-xs"
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      新建标签
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-2" align="start">
+                    <div className="flex gap-1">
+                      <Input
+                        placeholder="标签名称"
+                        value={newTagName}
+                        onChange={(e) => setNewTagName(e.target.value)}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && handleCreateTag()
+                        }
+                        className="h-7 text-xs"
+                      />
+                      <Button
+                        size="sm"
+                        className="h-7 px-2"
+                        onClick={handleCreateTag}
+                      >
+                        <Check className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                {/* 标签列表 */}
+                <div className="flex flex-wrap gap-1">
+                  {tags.map((tag) => (
+                    <Badge
+                      key={tag.id}
+                      variant={
+                        selectedTags.includes(tag.name) ? "default" : "outline"
+                      }
+                      className="cursor-pointer text-xs h-6 group"
+                      onClick={() => toggleTagFilter(tag.name)}
+                    >
+                      <span
+                        className={`w-2 h-2 rounded-full mr-1 ${tag.color}`}
+                      />
+                      {tag.name}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteTag(tag.id);
+                        }}
+                        className="ml-1 opacity-0 group-hover:opacity-100 hover:text-destructive"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  {tags.length === 0 && (
+                    <p className="text-xs text-muted-foreground">暂无标签</p>
+                  )}
+                </div>
+
+                {/* 已选标签提示 */}
+                {selectedTags.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-center h-6 text-xs text-muted-foreground"
+                    onClick={() => setSelectedTags([])}
+                  >
+                    清除筛选 ({selectedTags.length})
+                  </Button>
+                )}
+              </div>
+            </SidebarGroupContent>
+          )}
+        </SidebarGroup>
+
+        <SidebarGroup>
           <SidebarGroupLabel className="flex items-center justify-between">
             <span>我的笔记</span>
             <span className="text-xs text-muted-foreground">
-              {notes.length} 篇
+              {filteredNotes.length}
+              {filteredNotes.length !== notes.length && `/${notes.length}`} 篇
             </span>
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -225,7 +473,7 @@ export function AppSidebar() {
                 </div>
               ) : (
                 <>
-                  {notes.map((note) => (
+                  {filteredNotes.map((note) => (
                     <SidebarMenuItem key={note.id}>
                       {editingId === note.id ? (
                         <div className="flex items-center gap-1 px-2 py-1.5">
@@ -262,9 +510,32 @@ export function AppSidebar() {
                         >
                           <Link href={`/dashboard/notes/${note.id}`}>
                             <FileText className="h-4 w-4 flex-shrink-0" />
-                            <span className="truncate flex-1">
-                              {note.title || "未命名笔记"}
-                            </span>
+                            <div className="flex-1 min-w-0">
+                              <span className="truncate block">
+                                {note.title || "未命名笔记"}
+                              </span>
+                              {/* 显示笔记标签 */}
+                              {note.tags && note.tags.length > 0 && (
+                                <div className="flex gap-0.5 mt-0.5">
+                                  {note.tags.slice(0, 2).map((tagName) => {
+                                    const tagData = tags.find(
+                                      (t) => t.name === tagName
+                                    );
+                                    return (
+                                      <span
+                                        key={tagName}
+                                        className={`w-1.5 h-1.5 rounded-full ${tagData?.color || "bg-gray-400"}`}
+                                      />
+                                    );
+                                  })}
+                                  {note.tags.length > 2 && (
+                                    <span className="text-[10px] text-muted-foreground">
+                                      +{note.tags.length - 2}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                             <button
                               onClick={(e) => handleStartEdit(e, note)}
                               className="h-5 w-5 shrink-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-accent transition-opacity"
@@ -276,9 +547,11 @@ export function AppSidebar() {
                       )}
                     </SidebarMenuItem>
                   ))}
-                  {notes.length === 0 && (
+                  {filteredNotes.length === 0 && (
                     <p className="px-2 py-4 text-sm text-muted-foreground text-center">
-                      暂无笔记
+                      {searchQuery || selectedTags.length > 0
+                        ? "没有匹配的笔记"
+                        : "暂无笔记"}
                     </p>
                   )}
                 </>
