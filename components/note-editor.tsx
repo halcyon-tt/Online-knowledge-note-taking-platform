@@ -121,27 +121,35 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
   const setHorizontalRule = () => editor?.chain().focus().setHorizontalRule().run();
 
   // 插入链接
-  const insertLink = () => {
-    if (linkUrl.trim() && editor) {
-      if (editor.isActive('link')) {
-        editor.chain().focus().unsetLink().run();
-      } else {
-        editor
-          .chain()
-          .focus()
-          .setLink({ href: linkUrl })
-          .run();
-      }
-      setLinkUrl('');
-      setShowLinkModal(false);
-    }
-  };
+  // const insertLink = () => {
+  //   if (linkUrl.trim() && editor) {
+  //     if (editor.isActive('link')) {
+  //       editor.chain().focus().unsetLink().run();
+  //     } else {
+  //       editor
+  //         .chain()
+  //         .focus()
+  //         .setLink({ href: linkUrl })
+  //         .run();
+  //     }
+  //     setLinkUrl('');
+  //     setShowLinkModal(false);
+  //   }
+  // };
 
   // 插入图片
   const insertImage = useCallback(() => {
     const url = window.prompt('请输入图片 URL');
     if (url) {
       editor?.chain().focus().setImage({ src: url }).run();
+    }
+  }, [editor]);
+
+  // 插入图片
+  const insertLink = useCallback(() => {
+    const url = window.prompt('请输入 URL');
+    if (url) {
+      editor?.chain().focus().setLink({ href: url }).run();
     }
   }, [editor]);
 
@@ -421,7 +429,8 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
             {/* 链接和图片 */}
             <div className="flex items-center space-x-1 border-r border-gray-200 pr-3">
               <button
-                onClick={() => setShowLinkModal(true)}
+                // onClick={() => setShowLinkModal(true)}
+                onClick={() => insertLink()}
                 className={`p-2 rounded hover:bg-gray-100 ${editor.isActive('link') ? 'bg-gray-100 text-blue-600' : ''}`}
                 title="插入链接"
               >
