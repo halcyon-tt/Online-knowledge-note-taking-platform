@@ -8,12 +8,12 @@
 
 /* Tiptap 编辑器样式 */
 .ProseMirror {
-  min-height: 600px;
+  min-height: 500px;
 }
 
 /* Tiptap 编辑器样式 */
 .tiptap-editor {
-  min-height: 600px;
+  height: 500px;
   padding: 15px;
 }
 

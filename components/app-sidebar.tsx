@@ -318,6 +318,10 @@ export function AppSidebar() {
     }
   };
 
+  const handleLogin = () => {
+    router.push("/login");
+  }
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-border p-4">
@@ -577,7 +581,7 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t border-border p-4">
 
-        <Button onClick={handleCreateNote} className="w-full">
+        <Button onClick={handleLogin} className="w-full">
           登录/注册
         </Button>
         {useLocalStorage && (
