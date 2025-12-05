@@ -68,7 +68,7 @@ export function AppSidebar() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [newTagName, setNewTagName] = useState("");
   const [showTagsSection, setShowTagsSection] = useState(true);
-
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   // 获取用户笔记
   useEffect(() => {
     async function loadNotes() {
@@ -203,11 +203,13 @@ export function AppSidebar() {
       const supabase = createClient();
       if (!supabase) return;
 
-      const { data, error } = await supabase
+        const { data, error } = await supabase
         .from("tags")
-        .insert({ name: trimmedName })
+        .insert({ name: trimmedName ,user_id: DEFAULT_USER_ID })
         .select()
         .single();
+
+      
 
       // if (error) {
       //   console.error("Error creating tag:", error);
@@ -218,6 +220,7 @@ export function AppSidebar() {
         setTags((prev) => [...prev, data as TagType]);
       }
     }
+    setIsPopoverOpen(false);
     setNewTagName("");
   };
 
@@ -377,7 +380,7 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <div className="px-2 space-y-2">
                 {/* 新建标签 */}
-                <Popover>
+                <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="ghost"
