@@ -309,9 +309,9 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-black p-4">
+    <div className=" bg-gray-50 dark:bg-black">
       {/* 顶部工具栏 */}
-      <div className="sticky top-0 z-10 bg-white dark:bg-black border-b border-gray-200 dark:border-gray-300 shadow-sm">
+      <div className="sticky top-0 z-10 bg-white dark:bg-black border-b border-gray-200 dark:border-gray-300 shadow-sm ">
         <div className="max-w-7xl mx-auto px-4 py-3">
           {/* 主工具栏 */}
           <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -534,7 +534,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
       <div className="max-w-7xl mx-auto px-4 py-6">
         {isPreview ? (
           // 预览模式
-          <div className="bg-white dark:bg-black rounded-lg border border-gray-200 dark:border-gray-800 p-6 min-h-[600px] transition-colors duration-200">
+          <div className="bg-white dark:bg-black rounded-lg border border-gray-200 dark:border-gray-800 p-6 h-[600px] transition-colors duration-200 overflow-y-auto">
             <div className="prose prose-lg dark:prose-invert max-w-none prose-headings:text-gray-900 dark:prose-headings:text-gray-100 prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-strong:text-gray-900 dark:prose-strong:text-gray-100 prose-em:text-gray-700 dark:prose-em:text-gray-300 prose-code:text-green-600 dark:prose-code:text-green-400 prose-blockquote:text-gray-600 dark:prose-blockquote:text-gray-400 prose-ul:text-gray-700 dark:prose-ul:text-gray-300 prose-ol:text-gray-700 dark:prose-ol:text-gray-300 prose-li:text-gray-700 dark:prose-li:text-gray-300">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {content
@@ -563,7 +563,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
           </div>
         ) : (
           // 编辑模式
-            <div className="bg-white dark:bg-black rounded-lg border border-gray-200 dark:border-gray-300 overflow-hidden transition-colors duration-200">
+            <div className="bg-white dark:bg-black rounded-lg border border-gray-200 dark:border-gray-300 overflow-hidden transition-colors duration-200 overflow-y-auto h-[650px]">
             <EditorContent
               editor={editor}
               className="tiptap-editor"

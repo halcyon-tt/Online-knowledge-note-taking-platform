@@ -48,6 +48,30 @@ export function AppSidebar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [tags, setTags] = useState<TagType[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [loginStatus, setLoginStatus] = useState("登录/注册");
+
+  // 检查登录状态
+  useEffect(() => {
+    async function checkLoginStatus() {
+      if (!useLocalStorage) {
+        const supabase = createClient();
+        if (supabase) {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (user) {
+            setLoginStatus(
+              `已登录: ${user.user_metadata?.username || user.email || "用户"}`
+            );
+          } else {
+            setLoginStatus("登录/注册");
+          }
+        }
+      }
+    }
+    checkLoginStatus();
+  }, [useLocalStorage]);
+
   // 获取用户笔记
   useEffect(() => {
     async function loadNotes() {
@@ -280,6 +304,18 @@ export function AppSidebar() {
     }
   };
 
+  const handleLogin = async () => {
+    if (loginStatus.startsWith("已登录")) {
+      const supabase = createClient();
+      if (supabase) {
+        await supabase.auth.signOut();
+        setLoginStatus("登录/注册");
+      }
+    } else {
+      router.push("/login");
+    }
+  };
+
   return (
     <Sidebar
       collapsible="icon"
@@ -343,8 +379,9 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-border p-4">
-        <Button onClick={handleCreateNote} className="w-full">
-          登录/注册
+        <Button onClick={handleLogin} className="w-full">
+          {loginStatus}
+          {/* 登录/注册 */}
         </Button>
         {useLocalStorage && (
           <p className="text-xs text-yellow-600 mt-2 text-center">
