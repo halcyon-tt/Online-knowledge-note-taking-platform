@@ -203,13 +203,13 @@ export function AppSidebar() {
       const supabase = createClient();
       if (!supabase) return;
 
-        const { data, error } = await supabase
+      const { data, error } = await supabase
         .from("tags")
-        .insert({ name: trimmedName ,user_id: DEFAULT_USER_ID })
+        .insert({ name: trimmedName, user_id: DEFAULT_USER_ID })
         .select()
         .single();
 
-      
+
 
       // if (error) {
       //   console.error("Error creating tag:", error);
@@ -290,10 +290,10 @@ export function AppSidebar() {
         prev.map((n) =>
           n.id === noteId
             ? {
-                ...n,
-                title: trimmedTitle,
-                updated_at: new Date().toISOString(),
-              }
+              ...n,
+              title: trimmedTitle,
+              updated_at: new Date().toISOString(),
+            }
             : n
         )
       );
@@ -328,22 +328,11 @@ export function AppSidebar() {
           </Link>
           <ThemeToggle />
         </div>
+
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent className="px-2 pt-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="搜索笔记..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 h-8 text-sm"
-              />
-            </div>
-          </SidebarGroupContent>
-        </SidebarGroup>
+
 
         <SidebarGroup>
           <SidebarGroupContent>
@@ -357,6 +346,28 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <Button onClick={handleCreateNote} className="w-full">
+            <Plus className="h-4 w-4 mr-2" />
+            新建笔记
+          </Button>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupContent className="px-2 pt-2">
+
+            <div className="relative">
+
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="搜索笔记..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 h-8 text-sm"
+              />
+            </div>
           </SidebarGroupContent>
         </SidebarGroup>
 
@@ -565,9 +576,9 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-border p-4">
+
         <Button onClick={handleCreateNote} className="w-full">
-          <Plus className="h-4 w-4 mr-2" />
-          新建笔记
+          登录/注册
         </Button>
         {useLocalStorage && (
           <p className="text-xs text-yellow-600 mt-2 text-center">
