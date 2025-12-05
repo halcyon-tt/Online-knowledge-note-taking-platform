@@ -4,7 +4,8 @@ import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { isSupabaseConfigured, createClient } from "@/lib/supabase/client";
 import { getLocalNote, updateLocalNote } from "@/lib/local-storage";
-import NoteEditor from "@/components/note-editor"; // 确保路径正确
+import NoteEditor from "@/components/note-editor";
+import { NoteTagManager } from "@/components/note-tag-manager";
 import type { Note } from "@/types/note";
 
 interface PageProps {
@@ -62,10 +63,8 @@ export default function NotePage({ params }: PageProps) {
     };
 
     if (useLocalStorage) {
-      // 更新本地存储
       updateLocalNote(id, updatedNote);
     } else {
-      // 更新到Supabase
       const supabase = createClient();
       if (!supabase) return;
 
@@ -89,6 +88,11 @@ export default function NotePage({ params }: PageProps) {
     setNote(updatedNote);
   };
 
+  const handleTagsChange = (tags: string[]) => {
+    if (!note) return;
+    setNote({ ...note, tags });
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -109,9 +113,23 @@ export default function NotePage({ params }: PageProps) {
   }
 
   return (
-    <NoteEditor
-      initialContent={note.content || ""}
-      onChange={handleContentChange}
-    />
+    <div className="flex flex-col h-full">
+      <div className="border-b bg-background px-4 py-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">标签:</span>
+          <NoteTagManager
+            noteId={id}
+            noteTags={note.tags || []}
+            onTagsChange={handleTagsChange}
+          />
+        </div>
+      </div>
+      <div className="flex-1 overflow-auto">
+        <NoteEditor
+          initialContent={note.content || ""}
+          onChange={handleContentChange}
+        />
+      </div>
+    </div>
   );
 }
