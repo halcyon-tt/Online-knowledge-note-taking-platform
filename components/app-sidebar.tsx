@@ -209,13 +209,6 @@ export function AppSidebar() {
         .select()
         .single();
 
-
-
-      // if (error) {
-      //   console.error("Error creating tag:", error);
-      //   return;
-      // }
-
       if (data) {
         setTags((prev) => [...prev, data as TagType]);
       }
@@ -290,10 +283,10 @@ export function AppSidebar() {
         prev.map((n) =>
           n.id === noteId
             ? {
-              ...n,
-              title: trimmedTitle,
-              updated_at: new Date().toISOString(),
-            }
+                ...n,
+                title: trimmedTitle,
+                updated_at: new Date().toISOString(),
+              }
             : n
         )
       );
@@ -323,7 +316,10 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar
+      collapsible="icon"
+      className="w-64 min-w-64 max-w-64 overflow-hidden"
+    >
       <SidebarHeader className="border-b border-border p-4">
         <div className="flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-2">
@@ -332,12 +328,9 @@ export function AppSidebar() {
           </Link>
           <ThemeToggle />
         </div>
-
       </SidebarHeader>
 
       <SidebarContent>
-
-
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -361,9 +354,7 @@ export function AppSidebar() {
         </SidebarGroup>
         <SidebarGroup>
           <SidebarGroupContent className="px-2 pt-2">
-
             <div className="relative">
-
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="搜索笔记..."
@@ -392,8 +383,8 @@ export function AppSidebar() {
             <span className="text-xs text-muted-foreground">{tags.length}</span>
           </SidebarGroupLabel>
           {showTagsSection && (
-            <SidebarGroupContent>
-              <div className="px-2 space-y-2">
+            <SidebarGroupContent className="overflow-hidden">
+              <div className="px-2 space-y-2 overflow-hidden min-w-0 max-w-full">
                 {/* 新建标签 */}
                 <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                   <PopoverTrigger asChild>
@@ -429,26 +420,30 @@ export function AppSidebar() {
                 </Popover>
 
                 {/* 标签列表 */}
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto overflow-x-hidden min-w-0 max-w-full">
                   {tags.map((tag) => (
                     <Badge
                       key={tag.id}
                       variant={
                         selectedTags.includes(tag.name) ? "default" : "outline"
                       }
-                      className="cursor-pointer text-xs h-6 group"
-                      onClick={() => toggleTagFilter(tag.name)}
+                      className="cursor-pointer text-xs h-6 group max-w-[100px] min-w-0 flex-shrink-0 overflow-hidden"
                     >
                       <span
-                        className={`w-2 h-2 rounded-full mr-1 ${tag.color}`}
+                        className={`w-2 h-2 rounded-full mr-1 flex-shrink-0 ${tag.color}`}
                       />
-                      {tag.name}
+                      <span
+                        className="truncate min-w-0 flex-1"
+                        onClick={() => toggleTagFilter(tag.name)}
+                      >
+                        {tag.name}
+                      </span>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteTag(tag.id);
                         }}
-                        className="ml-1 opacity-0 group-hover:opacity-100 hover:text-destructive"
+                        className="ml-1 opacity-0 group-hover:opacity-100 hover:text-destructive flex-shrink-0"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -528,8 +523,8 @@ export function AppSidebar() {
                         >
                           <Link href={`/dashboard/notes/${note.id}`}>
                             <FileText className="h-4 w-4 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <span className="truncate block">
+                            <div className="flex-1 min-w-0 overflow-hidden">
+                              <span className="truncate block max-w-full">
                                 {note.title || "未命名笔记"}
                               </span>
                               {/* 显示笔记标签 */}
@@ -542,12 +537,12 @@ export function AppSidebar() {
                                     return (
                                       <span
                                         key={tagName}
-                                        className={`w-1.5 h-1.5 rounded-full ${tagData?.color || "bg-gray-400"}`}
+                                        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${tagData?.color || "bg-gray-400"}`}
                                       />
                                     );
                                   })}
                                   {note.tags.length > 2 && (
-                                    <span className="text-[10px] text-muted-foreground">
+                                    <span className="text-[10px] text-muted-foreground flex-shrink-0">
                                       +{note.tags.length - 2}
                                     </span>
                                   )}
