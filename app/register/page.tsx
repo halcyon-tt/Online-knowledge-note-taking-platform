@@ -186,39 +186,7 @@ export default function SignUp() {
                             />
                         </div>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="image">头像 (可选)</Label>
-                            <div className="flex items-end gap-4">
-                                {imagePreview && (
-                                    <div className="relative w-16 h-16 rounded-sm overflow-hidden">
-                                        <Image
-                                            src={imagePreview}
-                                            alt="头像预览"
-                                            fill
-                                            className="object-cover"
-                                        />
-                                    </div>
-                                )}
-                                <div className="flex items-center gap-2 w-full">
-                                    <Input
-                                        id="image"
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleImageChange}
-                                        className="w-full"
-                                    />
-                                    {imagePreview && (
-                                        <X
-                                            className="cursor-pointer"
-                                            onClick={() => {
-                                                setImage(null);
-                                                setImagePreview(null);
-                                            }}
-                                        />
-                                    )}
-                                </div>
-                            </div>
-                        </div>
+                        
 
                         <Button
                             type="button"

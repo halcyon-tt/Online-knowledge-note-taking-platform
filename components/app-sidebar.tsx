@@ -50,6 +50,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import type { Note, Tag as TagType } from "@/types/note";
+import { log } from "console";
 
 // 固定用户ID（在实现登录功能前使用）
 const DEFAULT_USER_ID = "4af03726-c537-4a07-a9a9-3c05a266954a";
@@ -69,6 +70,21 @@ export function AppSidebar() {
   const [newTagName, setNewTagName] = useState("");
   const [showTagsSection, setShowTagsSection] = useState(true);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [loginStatus, setLoginStatus] = useState("登录/注册");
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user }, error } = await createClient().auth.getUser();
+
+      if (user) {
+        setLoginStatus(`已登录: ${user.user_metadata.username}`);
+      } else {
+        setLoginStatus("登录/注册");
+      }
+    })();
+  }, []);
+
+
   // 获取用户笔记
   useEffect(() => {
     async function loadNotes() {
@@ -283,10 +299,10 @@ export function AppSidebar() {
         prev.map((n) =>
           n.id === noteId
             ? {
-                ...n,
-                title: trimmedTitle,
-                updated_at: new Date().toISOString(),
-              }
+              ...n,
+              title: trimmedTitle,
+              updated_at: new Date().toISOString(),
+            }
             : n
         )
       );
@@ -311,8 +327,11 @@ export function AppSidebar() {
     }
   };
 
-  const handleLogin = () => {
-    router.push("/login");
+  const handleLogin = async () => {
+    if (loginStatus.startsWith("已登录")) {
+      await createClient().auth.signOut()
+      setLoginStatus("登录/注册");
+    } else router.push("/login");
   }
 
   return (
@@ -577,7 +596,8 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-border p-4">
 
         <Button onClick={handleLogin} className="w-full">
-          登录/注册
+          {loginStatus}
+          {/* 登录/注册 */}
         </Button>
         {useLocalStorage && (
           <p className="text-xs text-yellow-600 mt-2 text-center">

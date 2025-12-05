@@ -24,7 +24,7 @@ export default function SignIn() {
             setLoading(true);
             await signInWithEmail(email, password);
             alert("登录成功！");
-            router.push("/main");
+            router.push("/");
         } catch (error: any) {
             alert(error.message || "登录失败，请检查邮箱和密码");
         } finally {

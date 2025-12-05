@@ -100,3 +100,10 @@ export async function getCurrentUser() {
     const { data: { user } } = await supabase.auth.getUser();
     return user;
 }
+
+// 获取当前用户ID
+export async function getUserId() {
+    const { data: { user }, error } = await createClient().auth.getUser();
+
+    return user?.id
+}
