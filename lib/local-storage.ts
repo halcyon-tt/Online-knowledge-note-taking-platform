@@ -186,17 +186,17 @@ export function deleteLocalTag(id: string): boolean {
 }
 
 // 为笔记添加标签
-export function addTagToNote(noteId: string, tagName: string): Note | null {
+export function addTagToNote(noteId: string, tagId: string): Note | null {
   const notes = getLocalNotes();
   const index = notes.findIndex((n) => n.id === noteId);
   if (index === -1) return null;
 
   const currentTags = notes[index].tags || [];
-  if (!currentTags.includes(tagName)) {
+  if (!currentTags.includes(tagId)) {
     notes[index] = {
       ...notes[index],
-      tags: [...currentTags, tagName],
-      // updated_at: new Date().toISOString(),
+      tags: [...currentTags, tagId],
+      updated_at: new Date().toISOString(),
     };
     saveLocalNotes(notes);
   }
@@ -206,7 +206,7 @@ export function addTagToNote(noteId: string, tagName: string): Note | null {
 // 从笔记移除标签
 export function removeTagFromNote(
   noteId: string,
-  tagName: string
+  tagId: string
 ): Note | null {
   const notes = getLocalNotes();
   const index = notes.findIndex((n) => n.id === noteId);
@@ -214,7 +214,7 @@ export function removeTagFromNote(
 
   notes[index] = {
     ...notes[index],
-    tags: (notes[index].tags || []).filter((t) => t !== tagName),
+    tags: (notes[index].tags || []).filter((t) => t !== tagId),
     updated_at: new Date().toISOString(),
   };
   saveLocalNotes(notes);

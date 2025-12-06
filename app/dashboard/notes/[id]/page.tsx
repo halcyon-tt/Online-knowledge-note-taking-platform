@@ -121,6 +121,7 @@ export default function NotePage({ params }: PageProps) {
             noteId={id}
             noteTags={note.tags || []}
             onTagsChange={handleTagsChange}
+            
           />
         </div>
       </div>
