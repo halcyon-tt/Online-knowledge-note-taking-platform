@@ -1,7 +1,10 @@
-import type { Note, Tag } from "@/types/note";
+import type { Folder, Note, Tag } from "@/types/note";
 
 const STORAGE_KEY = "local_notes";
 const TAGS_STORAGE_KEY = "local_tags"; // 添加标签存储键
+
+const FOLDERS_STORAGE_KEY = "local_folders"; // 添加文件夹存储键
+
 
 // 获取所有笔记
 export function getLocalNotes(): Note[] {
@@ -10,10 +13,23 @@ export function getLocalNotes(): Note[] {
   return data ? JSON.parse(data) : [];
 }
 
+// 获取所有文件夹
+export function getLocalFolders(): Folder[] {
+  if (typeof window === "undefined") return [];
+  const data = localStorage.getItem(FOLDERS_STORAGE_KEY);
+  return data ? JSON.parse(data) : [];
+}
+
 // 保存所有笔记
 export function saveLocalNotes(notes: Note[]) {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+}
+
+// 保存所有文件夹
+export function saveLocalFolders(folders: Folder[]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(FOLDERS_STORAGE_KEY, JSON.stringify(folders));
 }
 
 // 获取单个笔记
@@ -24,7 +40,7 @@ export function getLocalNote(id: string): Note | null {
 
 // 创建笔记
 export function createLocalNote(
-  note: Omit<Note, "id" | "created_at" | "updated_at">
+  note: Omit<Note, "id" | "created_at" | "updated_at"> // Omit用于排除id, created_at, updated_at字段
 ): Note {
   const notes = getLocalNotes();
   const newNote: Note = {
@@ -36,6 +52,23 @@ export function createLocalNote(
   notes.unshift(newNote);
   saveLocalNotes(notes);
   return newNote;
+}
+
+// 创建文件夹
+export function createLocalFolder(
+  folder: Omit<Folder, "id" | "created_at" | "updated_at" | "notes_id"> // Omit用于排除id, created_at, updated_at, notes_id字段
+): Folder {
+  const folders = getLocalFolders();
+  const newFolder: Folder = {
+    ...folder,
+    id: crypto.randomUUID(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    notes_id: "",
+  };
+  folders.unshift(newFolder);
+  saveLocalFolders(folders);
+  return newFolder;
 }
 
 // 更新笔记

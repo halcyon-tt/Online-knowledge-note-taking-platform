@@ -1,19 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileText, Plus } from "lucide-react";
+import { FileStack, FileText, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { getUserId } from "@/lib/auth-utils";
-import { createLocalNote, getLocalNotes } from "@/lib/local-storage";
+import { createLocalFolder, createLocalNote, getLocalFolders, getLocalNotes } from "@/lib/local-storage";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Note } from "@/types/note";
+import type { Folder, Note } from "@/types/note";
 
 export default function DashboardPage() {
   const router = useRouter();
   const [notes, setNotes] = useState<Note[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
   const useLocalStorage = !isSupabaseConfigured();
 
@@ -40,7 +41,33 @@ export default function DashboardPage() {
       }
       setLoading(false);
     }
+
     loadNotes();
+
+    async function loadFolders() {
+      if (useLocalStorage) {
+        setFolders(getLocalFolders().slice(0, 6));
+      } else {
+        const supabase = createClient();
+        if (supabase) {
+          const userId = await getUserId();
+          if (userId) {
+            const { data } = await supabase
+              .from("folders")
+              .select("*")
+              .eq("user_id", userId)
+              .order("updated_at", { ascending: false })
+              .limit(6);
+            setFolders((data as Folder[]) || []);
+          } else {
+            setFolders([]);
+          }
+        }
+      }
+      setLoading(false);
+    }
+
+    loadFolders();
   }, [useLocalStorage]);
 
   const handleCreateNote = async () => {
@@ -68,6 +95,37 @@ export default function DashboardPage() {
       }
     }
   };
+  const handleCreateFolder = async () => {
+    const name = window.prompt("请输入文件夹名:");
+    if (!name) {
+      window.alert("文件夹名不能为空");
+      return;
+    }
+    if (useLocalStorage) {
+      const newFolder = createLocalFolder({ name });
+
+      setFolders((prev) => [newFolder as Folder, ...prev]);
+    } else {
+      const supabase = createClient();
+      if (!supabase) return;
+
+      const userId = await getUserId();
+      if (!userId) {
+        alert("请先登录");
+        router.push("/login");
+        return;
+      }
+
+      const { data } = await supabase
+        .from("folders")
+        .insert({ name, user_id: userId })
+        .select()
+        .single();
+      if (data) {
+        setFolders((prev) => [data as Folder, ...prev]);
+      }
+    }
+  }
 
   if (loading) {
     return (
@@ -90,20 +148,49 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-10">
+        <Card className="border-dashed h-full">
+          <div className="flex flex-col items-center justify-evenly h-full">
             <Button
               type="button"
               variant="outline"
               size="lg"
               onClick={handleCreateNote}
+              className="w-1/3"
             >
               <Plus className="h-5 w-5 mr-2" />
               新建笔记
             </Button>
-          </CardContent>
-        </Card>
 
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={handleCreateFolder}
+              className="w-1/3"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              新建文件夹
+            </Button>
+          </div>
+        </Card>
+        {/* 文件夹页面待写 */}
+        {folders.map((folder) => (
+          <Link key={folder.id} href={`/dashboard/folder/${folder.id}`}>
+            <Card className="hover:bg-accent transition-colors cursor-pointer h-full">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <FileStack className="h-4 w-4" />
+                  <span className="truncate">{folder.name}</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground mt-3">
+                  {new Date(folder.updated_at).toLocaleDateString("zh-CN")}
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
         {notes.map((note) => (
           <Link key={note.id} href={`/dashboard/notes/${note.id}`}>
             <Card className="hover:bg-accent transition-colors cursor-pointer h-full">
