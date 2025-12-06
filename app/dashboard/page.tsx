@@ -5,6 +5,7 @@ import { FileText, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { getUserId } from "@/lib/auth-utils";
 import { createLocalNote, getLocalNotes } from "@/lib/local-storage";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,12 +25,18 @@ export default function DashboardPage() {
       } else {
         const supabase = createClient();
         if (supabase) {
-          const { data } = await supabase
-            .from("notes")
-            .select("*")
-            .order("updated_at", { ascending: false })
-            .limit(6);
-          setNotes((data as Note[]) || []);
+          const userId = await getUserId();
+          if (userId) {
+            const { data } = await supabase
+              .from("notes")
+              .select("*")
+              .eq("user_id", userId)
+              .order("updated_at", { ascending: false })
+              .limit(6);
+            setNotes((data as Note[]) || []);
+          } else {
+            setNotes([]);
+          }
         }
       }
       setLoading(false);
@@ -45,9 +52,16 @@ export default function DashboardPage() {
       const supabase = createClient();
       if (!supabase) return;
 
+      const userId = await getUserId();
+      if (!userId) {
+        alert("请先登录");
+        router.push("/login");
+        return;
+      }
+
       const { data } = await supabase
         .from("notes")
-        .insert({ title: "未命名笔记", content: "", user_id: '4af03726-c537-4a07-a9a9-3c05a266954a' })
+        .insert({ title: "未命名笔记", content: "", user_id: userId })
         .select()
         .single();
       if (data) {

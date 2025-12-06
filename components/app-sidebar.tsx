@@ -7,6 +7,7 @@ import { Plus, Home } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { getUserId } from "@/lib/auth-utils";
 import {
   createLocalNote,
   getLocalNotes,
@@ -32,9 +33,6 @@ import { SidebarSearch } from "@/components/sidebar-search";
 import { SidebarTagsSection } from "@/components/sidebar-tags-section";
 import { SidebarNotesList } from "@/components/sidebar-notes-list";
 import type { Note, Tag as TagType } from "@/types/note";
-
-// 固定用户ID（在实现登录功能前使用）
-const DEFAULT_USER_ID = "4af03726-c537-4a07-a9a9-3c05a266954a";
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -87,10 +85,17 @@ export function AppSidebar() {
             return;
           }
 
+          const userId = await getUserId();
+          if (!userId) {
+            setNotes([]);
+            setTags([]);
+            return;
+          }
+
           const { data, error } = await supabase
             .from("notes")
             .select("*")
-            .eq("user_id", DEFAULT_USER_ID)
+            .eq("user_id", userId)
             .order("updated_at", { ascending: false });
 
           if (error) {
@@ -104,6 +109,7 @@ export function AppSidebar() {
           const { data: tagsData } = await supabase
             .from("tags")
             .select("*")
+            .eq("user_id", userId)
             .order("name");
 
           if (tagsData) {
@@ -160,13 +166,20 @@ export function AppSidebar() {
         return;
       }
 
+      const userId = await getUserId();
+      if (!userId) {
+        alert("请先登录");
+        router.push("/login");
+        return;
+      }
+
       try {
         const { data, error } = await supabase
           .from("notes")
           .insert({
             title: "未命名笔记",
             content: "",
-            user_id: DEFAULT_USER_ID,
+            user_id: userId,
             updated_at: new Date().toISOString(),
           })
           .select()
@@ -198,11 +211,23 @@ export function AppSidebar() {
       const supabase = createClient();
       if (!supabase) return;
 
+      const userId = await getUserId();
+      if (!userId) {
+        alert("请先登录");
+        return;
+      }
+
       const { data, error } = await supabase
         .from("tags")
-        .insert({ name: tagName, user_id: DEFAULT_USER_ID })
+        .insert({ name: tagName, user_id: userId })
         .select()
         .single();
+
+      if (error) {
+        console.error("Error creating tag:", error);
+        alert("创建标签失败: " + error.message);
+        return;
+      }
 
       if (data) {
         setTags((prev) => [...prev, data as TagType]);
