@@ -17,7 +17,6 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const useLocalStorage = !isSupabaseConfigured();
 
-
   useEffect(() => {
     async function loadNotes() {
       if (useLocalStorage) {

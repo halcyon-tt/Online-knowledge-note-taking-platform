@@ -10,6 +10,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { getUserId } from "@/lib/auth-utils";
 import {
   getLocalTags,
   addTagToNote,
@@ -41,7 +42,17 @@ export function NoteTagManager({
         const supabase = createClient();
         if (!supabase) return;
 
-        const { data } = await supabase.from("tags").select("*").order("name");
+        const userId = await getUserId();
+        if (!userId) {
+          setTags([]);
+          return;
+        }
+
+        const { data } = await supabase
+          .from("tags")
+          .select("*")
+          .eq("user_id", userId)
+          .order("name");
         if (data) {
           setTags(data as Tag[]);
         }

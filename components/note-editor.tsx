@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Link from '@tiptap/extension-link';
-import Placeholder from '@tiptap/extension-placeholder';
-import FontFamily from '@tiptap/extension-font-family';
-import Image from '@tiptap/extension-image';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { useState, useEffect, useCallback } from "react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
+import Placeholder from "@tiptap/extension-placeholder";
+import FontFamily from "@tiptap/extension-font-family";
+import Image from "@tiptap/extension-image";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import {
   Bold,
@@ -25,24 +25,24 @@ import {
   Highlighter,
   Type,
   Minus,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface TiptapProps {
   initialContent?: string;
   onChange?: (content: string) => void;
 }
 
-export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
+export default function Tiptap({ initialContent = "", onChange }: TiptapProps) {
   const [content, setContent] = useState(initialContent);
   const [isPreview, setIsPreview] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
-  const [imageUrl, setImageUrl] = useState('');
-  const [linkUrl, setLinkUrl] = useState('');
+  const [imageUrl, setImageUrl] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [showFontModal, setShowFontModal] = useState(false);
-  const [fontFamily, setFontFamily] = useState('');
+  const [fontFamily, setFontFamily] = useState("");
 
   // 初始化编辑器
   const editor = useEditor({
@@ -64,20 +64,22 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
       Link.configure({
         openOnClick: false,
         HTMLAttributes: {
-          class: 'text-blue-400 hover:text-blue-300 underline transition-colors duration-200',
+          class:
+            "text-blue-400 hover:text-blue-300 underline transition-colors duration-200",
         },
       }),
       Placeholder.configure({
-        placeholder: '开始写作...',
+        placeholder: "开始写作...",
       }),
       FontFamily.configure({
-        types: ['textStyle'],
+        types: ["textStyle"],
       }),
       Image.configure({
         inline: false,
         allowBase64: true,
         HTMLAttributes: {
-          class: 'rounded-lg border-2 border-gray-700 hover:border-blue-500 transition-all duration-300',
+          class:
+            "rounded-lg border-2 border-gray-700 hover:border-blue-500 transition-all duration-300",
         },
       }),
     ],
@@ -88,7 +90,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
 
       // 手动计算字符数和字数
       setContent(html);
-      setWordCount(text.split(/\s+/).filter(word => word.length > 0).length);
+      setWordCount(text.split(/\s+/).filter((word) => word.length > 0).length);
       setCharCount(text.length);
 
       if (onChange) {
@@ -97,7 +99,8 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-lg dark:prose-invert max-w-none focus:outline-none min-h-[600px] p-6 prose-headings:text-gray-100 prose-p:text-gray-300 prose-strong:text-gray-100 prose-em:text-gray-300 prose-code:text-green-400 prose-blockquote:text-gray-400 prose-ul:text-gray-300 prose-ol:text-gray-300 prose-li:text-gray-300',
+        class:
+          "prose prose-lg dark:prose-invert max-w-none focus:outline-none min-h-[600px] p-6 prose-headings:text-gray-100 prose-p:text-gray-300 prose-strong:text-gray-100 prose-em:text-gray-300 prose-code:text-green-400 prose-blockquote:text-gray-400 prose-ul:text-gray-300 prose-ol:text-gray-300 prose-li:text-gray-300",
       },
     },
   });
@@ -107,30 +110,35 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
   const toggleItalic = () => editor?.chain().focus().toggleItalic().run();
   const toggleStrike = () => editor?.chain().focus().toggleStrike().run();
   const toggleHeading1 = () => {
-    console.log('设置一级标题');
+    console.log("设置一级标题");
     editor?.chain().focus().toggleHeading({ level: 1 }).run();
   };
   const toggleHeading2 = () => {
-    console.log('设置二级标题');
+    console.log("设置二级标题");
     editor?.chain().focus().toggleHeading({ level: 2 }).run();
   };
   const toggleHeading3 = () => {
-    console.log('设置三级标题');
+    console.log("设置三级标题");
     editor?.chain().focus().toggleHeading({ level: 3 }).run();
   };
-  const toggleHeading4 = () => editor?.chain().focus().toggleHeading({ level: 4 }).run();
-  const toggleBulletList = () => editor?.chain().focus().toggleBulletList().run();
-  const toggleOrderedList = () => editor?.chain().focus().toggleOrderedList().run();
-  const toggleBlockquote = () => editor?.chain().focus().toggleBlockquote().run();
+  const toggleHeading4 = () =>
+    editor?.chain().focus().toggleHeading({ level: 4 }).run();
+  const toggleBulletList = () =>
+    editor?.chain().focus().toggleBulletList().run();
+  const toggleOrderedList = () =>
+    editor?.chain().focus().toggleOrderedList().run();
+  const toggleBlockquote = () =>
+    editor?.chain().focus().toggleBlockquote().run();
   const toggleCode = () => editor?.chain().focus().toggleCode().run();
   const toggleCodeBlock = () => editor?.chain().focus().toggleCodeBlock().run();
   const undo = () => editor?.chain().focus().undo().run();
   const redo = () => editor?.chain().focus().redo().run();
-  const setHorizontalRule = () => editor?.chain().focus().setHorizontalRule().run();
+  const setHorizontalRule = () =>
+    editor?.chain().focus().setHorizontalRule().run();
 
   // 插入图片
   const insertImage = useCallback(() => {
-    const url = window.prompt('请输入图片 URL');
+    const url = window.prompt("请输入图片 URL");
     if (url) {
       editor?.chain().focus().setImage({ src: url }).run();
     }
@@ -138,7 +146,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
 
   // 插入链接
   const insertLink = useCallback(() => {
-    const url = window.prompt('请输入 URL');
+    const url = window.prompt("请输入 URL");
     if (url) {
       editor?.chain().focus().setLink({ href: url }).run();
     }
@@ -148,7 +156,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
   const setFont = () => {
     if (fontFamily.trim() && editor) {
       editor.chain().focus().setFontFamily(fontFamily).run();
-      setFontFamily('');
+      setFontFamily("");
       setShowFontModal(false);
     }
   };
@@ -165,37 +173,37 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
 
   // 导出为Markdown
   const exportToMarkdown = () => {
-    if (!editor) return '';
+    if (!editor) return "";
 
     const html = editor.getHTML();
     let markdown = html
-      .replace(/<h1>(.*?)<\/h1>/g, '# $1\n\n')
-      .replace(/<h2>(.*?)<\/h2>/g, '## $1\n\n')
-      .replace(/<h3>(.*?)<\/h3>/g, '### $1\n\n')
-      .replace(/<h4>(.*?)<\/h4>/g, '#### $1\n\n')
-      .replace(/<h5>(.*?)<\/h5>/g, '##### $1\n\n')
-      .replace(/<h6>(.*?)<\/h6>/g, '###### $1\n\n')
-      .replace(/<p>(.*?)<\/p>/g, '$1\n\n')
-      .replace(/<strong>(.*?)<\/strong>/g, '**$1**')
-      .replace(/<em>(.*?)<\/em>/g, '*$1*')
-      .replace(/<code>(.*?)<\/code>/g, '`$1`')
-      .replace(/<blockquote>(.*?)<\/blockquote>/g, '> $1')
-      .replace(/<ul>(.*?)<\/ul>/g, '$1')
-      .replace(/<li>(.*?)<\/li>/g, '- $1\n')
-      .replace(/<ol>(.*?)<\/ol>/g, '$1')
-      .replace(/<li>(.*?)<\/li>/g, '1. $1\n')
-      .replace(/<a href="(.*?)">(.*?)<\/a>/g, '[$2]($1)')
-      .replace(/<img src="(.*?)".*?>/g, '![图片]($1)')
-      .replace(/<hr>/g, '\n---\n')
-      .replace(/<br>/g, '\n')
-      .replace(/<[^>]*>/g, '');
+      .replace(/<h1>(.*?)<\/h1>/g, "# $1\n\n")
+      .replace(/<h2>(.*?)<\/h2>/g, "## $1\n\n")
+      .replace(/<h3>(.*?)<\/h3>/g, "### $1\n\n")
+      .replace(/<h4>(.*?)<\/h4>/g, "#### $1\n\n")
+      .replace(/<h5>(.*?)<\/h5>/g, "##### $1\n\n")
+      .replace(/<h6>(.*?)<\/h6>/g, "###### $1\n\n")
+      .replace(/<p>(.*?)<\/p>/g, "$1\n\n")
+      .replace(/<strong>(.*?)<\/strong>/g, "**$1**")
+      .replace(/<em>(.*?)<\/em>/g, "*$1*")
+      .replace(/<code>(.*?)<\/code>/g, "`$1`")
+      .replace(/<blockquote>(.*?)<\/blockquote>/g, "> $1")
+      .replace(/<ul>(.*?)<\/ul>/g, "$1")
+      .replace(/<li>(.*?)<\/li>/g, "- $1\n")
+      .replace(/<ol>(.*?)<\/ol>/g, "$1")
+      .replace(/<li>(.*?)<\/li>/g, "1. $1\n")
+      .replace(/<a href="(.*?)">(.*?)<\/a>/g, "[$2]($1)")
+      .replace(/<img src="(.*?)".*?>/g, "![图片]($1)")
+      .replace(/<hr>/g, "\n---\n")
+      .replace(/<br>/g, "\n")
+      .replace(/<[^>]*>/g, "");
 
     // 下载文件
-    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const blob = new Blob([markdown], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'document.md';
+    a.download = "document.md";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -209,9 +217,9 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
     const text = editor.getText();
     try {
       await navigator.clipboard.writeText(text);
-      alert('内容已复制到剪贴板！');
+      alert("内容已复制到剪贴板！");
     } catch (err) {
-      console.error('复制失败:', err);
+      console.error("复制失败:", err);
     }
   };
 
@@ -220,24 +228,24 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
     if (!editor) return;
 
     const content = editor.getHTML();
-    localStorage.setItem('tiptap-content', content);
-    alert('内容已保存到本地存储！');
+    localStorage.setItem("tiptap-content", content);
+    alert("内容已保存到本地存储！");
   };
 
   // 从本地存储加载
   const loadFromLocalStorage = () => {
-    const savedContent = localStorage.getItem('tiptap-content');
+    const savedContent = localStorage.getItem("tiptap-content");
     if (savedContent && editor) {
       editor.commands.setContent(savedContent);
-      alert('内容已从本地存储加载！');
+      alert("内容已从本地存储加载！");
     }
   };
 
   // 重置编辑器
   const resetEditor = () => {
-    if (confirm('确定要清空编辑器吗？')) {
+    if (confirm("确定要清空编辑器吗？")) {
       editor?.commands.clearContent();
-      setContent('');
+      setContent("");
     }
   };
 
@@ -246,33 +254,33 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey) {
         switch (e.key) {
-          case 'b':
+          case "b":
             e.preventDefault();
             toggleBold();
             break;
-          case 'i':
+          case "i":
             e.preventDefault();
             toggleItalic();
             break;
-          case '1':
+          case "1":
             if (e.shiftKey) {
               e.preventDefault();
               toggleHeading1();
             }
             break;
-          case '2':
+          case "2":
             if (e.shiftKey) {
               e.preventDefault();
               toggleHeading2();
             }
             break;
-          case '3':
+          case "3":
             if (e.shiftKey) {
               e.preventDefault();
               toggleHeading3();
             }
             break;
-          case 'z':
+          case "z":
             if (e.shiftKey) {
               e.preventDefault();
               redo();
@@ -281,11 +289,11 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
               undo();
             }
             break;
-          case 'y':
+          case "y":
             e.preventDefault();
             redo();
             break;
-          case 's':
+          case "s":
             e.preventDefault();
             saveToLocalStorage();
             break;
@@ -293,8 +301,8 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [editor]);
 
   if (!editor) {
@@ -309,7 +317,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
   }
 
   return (
-    <div className=" bg-gray-50 dark:bg-black">
+    <div className="bg-gray-50 dark:bg-black overflow-hidden">
       {/* 顶部工具栏 */}
       <div className="sticky top-0 z-10 bg-white dark:bg-black border-b border-gray-200 dark:border-gray-300 shadow-sm ">
         <div className="max-w-7xl mx-auto px-4 py-3">
@@ -319,21 +327,21 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
             <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
               <button
                 onClick={toggleBold}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive('bold') ? 'bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("bold") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="粗体 (Ctrl+B)"
               >
                 <Bold className="w-5 h-5" />
               </button>
               <button
                 onClick={toggleItalic}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive('italic') ? 'bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("italic") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="斜体 (Ctrl+I)"
               >
                 <Italic className="w-5 h-5" />
               </button>
               <button
                 onClick={toggleStrike}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive('strike') ? 'bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("strike") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="删除线"
               >
                 <Strikethrough className="w-5 h-5" />
@@ -355,28 +363,28 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
             <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
               <button
                 onClick={toggleHeading1}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive('heading', { level: 1 }) ? 'bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("heading", { level: 1 }) ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="一级标题 (Shift+1)"
               >
                 <span className="text-sm font-bold">H1</span>
               </button>
               <button
                 onClick={toggleHeading2}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive('heading', { level: 2 }) ? 'bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("heading", { level: 2 }) ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="二级标题 (Shift+2)"
               >
                 <span className="text-sm font-bold">H2</span>
               </button>
               <button
                 onClick={toggleHeading3}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive('heading', { level: 3 }) ? 'bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("heading", { level: 3 }) ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="三级标题 (Shift+3)"
               >
                 <span className="text-sm font-bold">H3</span>
               </button>
               <button
                 onClick={setParagraph}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive('paragraph') ? 'bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("paragraph") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="段落"
               >
                 <span className="text-sm">正文</span>
@@ -387,14 +395,14 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
             <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
               <button
                 onClick={toggleBulletList}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive('bulletList') ? 'bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("bulletList") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="无序列表"
               >
                 <List className="w-5 h-5" />
               </button>
               <button
                 onClick={toggleOrderedList}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive('orderedList') ? 'bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("orderedList") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="有序列表"
               >
                 <ListOrdered className="w-5 h-5" />
@@ -405,14 +413,14 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
             <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
               <button
                 onClick={toggleBlockquote}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive('blockquote') ? 'bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("blockquote") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="引用"
               >
                 <Quote className="w-5 h-5" />
               </button>
               <button
                 onClick={toggleCodeBlock}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive('codeBlock') ? 'bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("codeBlock") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="代码块"
               >
                 <Code className="w-5 h-5" />
@@ -423,7 +431,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
             <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
               <button
                 onClick={insertLink}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive('link') ? 'bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("link") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="插入链接"
               >
                 <LinkIcon className="w-5 h-5" />
@@ -519,11 +527,13 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
               </button>
               <button
                 onClick={() => setIsPreview(!isPreview)}
-                className={`px-3 py-1 text-sm rounded transition-colors duration-200 border ${isPreview
-                  ? 'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-700'
-                  : 'bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 border-gray-200 dark:border-gray-800'}`}
+                className={`px-3 py-1 text-sm rounded transition-colors duration-200 border ${
+                  isPreview
+                    ? "bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-700"
+                    : "bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 border-gray-200 dark:border-gray-800"
+                }`}
               >
-                {isPreview ? '编辑模式' : '预览模式'}
+                {isPreview ? "编辑模式" : "预览模式"}
               </button>
             </div>
           </div>
@@ -538,42 +548,42 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
             <div className="tiptap-editor prose prose-lg dark:prose-invert max-w-none prose-headings:text-gray-900 dark:prose-headings:text-gray-100 prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-strong:text-gray-900 dark:prose-strong:text-gray-100 prose-em:text-gray-700 dark:prose-em:text-gray-300 prose-code:text-green-600 dark:prose-code:text-green-400 prose-blockquote:text-gray-600 dark:prose-blockquote:text-gray-400 prose-ul:text-gray-700 dark:prose-ul:text-gray-300 prose-ol:text-gray-700 dark:prose-ol:text-gray-300 prose-li:text-gray-700 dark:prose-li:text-gray-300">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {content
-                  .replace(/<h1>(.*?)<\/h1>/g, '# $1\n\n')
-                  .replace(/<h2>(.*?)<\/h2>/g, '## $1\n\n')
-                  .replace(/<h3>(.*?)<\/h3>/g, '### $1\n\n')
-                  .replace(/<h4>(.*?)<\/h4>/g, '#### $1\n\n')
-                  .replace(/<h5>(.*?)<\/h5>/g, '##### $1\n\n')
-                  .replace(/<h6>(.*?)<\/h6>/g, '###### $1\n\n')
-                  .replace(/<p>(.*?)<\/p>/g, '$1\n\n')
-                  .replace(/<strong>(.*?)<\/strong>/g, '**$1**')
-                  .replace(/<em>(.*?)<\/em>/g, '*$1*')
-                  .replace(/<code>(.*?)<\/code>/g, '`$1`')
-                  .replace(/<blockquote>(.*?)<\/blockquote>/g, '> $1')
-                  .replace(/<ul>(.*?)<\/ul>/g, '$1')
-                  .replace(/<li>(.*?)<\/li>/g, '- $1\n')
-                  .replace(/<ol>(.*?)<\/ol>/g, '$1')
-                  .replace(/<li>(.*?)<\/li>/g, '1. $1\n')
-                  .replace(/<a href="(.*?)">(.*?)<\/a>/g, '[$2]($1)')
-                  .replace(/<img src="(.*?)".*?>/g, '![图片]($1)')
-                  .replace(/<hr>/g, '\n---\n')
-                  .replace(/<br>/g, '\n')
-                  .replace(/<[^>]*>/g, '')}
+                  .replace(/<h1>(.*?)<\/h1>/g, "# $1\n\n")
+                  .replace(/<h2>(.*?)<\/h2>/g, "## $1\n\n")
+                  .replace(/<h3>(.*?)<\/h3>/g, "### $1\n\n")
+                  .replace(/<h4>(.*?)<\/h4>/g, "#### $1\n\n")
+                  .replace(/<h5>(.*?)<\/h5>/g, "##### $1\n\n")
+                  .replace(/<h6>(.*?)<\/h6>/g, "###### $1\n\n")
+                  .replace(/<p>(.*?)<\/p>/g, "$1\n\n")
+                  .replace(/<strong>(.*?)<\/strong>/g, "**$1**")
+                  .replace(/<em>(.*?)<\/em>/g, "*$1*")
+                  .replace(/<code>(.*?)<\/code>/g, "`$1`")
+                  .replace(/<blockquote>(.*?)<\/blockquote>/g, "> $1")
+                  .replace(/<ul>(.*?)<\/ul>/g, "$1")
+                  .replace(/<li>(.*?)<\/li>/g, "- $1\n")
+                  .replace(/<ol>(.*?)<\/ol>/g, "$1")
+                  .replace(/<li>(.*?)<\/li>/g, "1. $1\n")
+                  .replace(/<a href="(.*?)">(.*?)<\/a>/g, "[$2]($1)")
+                  .replace(/<img src="(.*?)".*?>/g, "![图片]($1)")
+                  .replace(/<hr>/g, "\n---\n")
+                  .replace(/<br>/g, "\n")
+                  .replace(/<[^>]*>/g, "")}
               </ReactMarkdown>
             </div>
           </div>
         ) : (
           // 编辑模式
-            <div className="bg-white dark:bg-black rounded-lg border border-gray-200 dark:border-gray-300 overflow-hidden transition-colors duration-200 overflow-y-auto h-[650px]">
-            <EditorContent
-              editor={editor}
-              className="tiptap-editor"
-            />
+          <div className="bg-white dark:bg-black rounded-lg border border-gray-200 dark:border-gray-300 overflow-hidden transition-colors duration-200 overflow-y-auto h-[650px]">
+            <EditorContent editor={editor} className="tiptap-editor" />
           </div>
         )}
 
         {/* 状态提示 */}
         <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-          <p>提示：使用快捷键快速操作（Ctrl+B: 粗体, Ctrl+I: 斜体, Shift+1/2/3: 标题, Ctrl+Z: 撤销, Ctrl+S: 保存）</p>
+          <p>
+            提示：使用快捷键快速操作（Ctrl+B: 粗体, Ctrl+I: 斜体, Shift+1/2/3:
+            标题, Ctrl+Z: 撤销, Ctrl+S: 保存）
+          </p>
         </div>
       </div>
 
@@ -581,7 +591,9 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
       {showLinkModal && (
         <div className="fixed inset-0 bg-black/70 dark:bg-black/90 flex items-center justify-center z-50 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-900 rounded-lg p-6 max-w-md w-full border border-gray-200 dark:border-gray-800 shadow-xl">
-            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">插入链接</h3>
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+              插入链接
+            </h3>
             <input
               type="text"
               value={linkUrl}
@@ -611,12 +623,14 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
       {showFontModal && (
         <div className="fixed inset-0 bg-black/70 dark:bg-black/90 flex items-center justify-center z-50 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-900 rounded-lg p-6 max-w-md w-full border border-gray-200 dark:border-gray-800 shadow-xl">
-            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">设置字体</h3>
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+              设置字体
+            </h3>
             <div className="mb-4">
               <div className="grid grid-cols-2 gap-2 mb-4">
                 <button
                   onClick={() => {
-                    editor?.chain().focus().setFontFamily('Arial').run();
+                    editor?.chain().focus().setFontFamily("Arial").run();
                     setShowFontModal(false);
                   }}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-left text-gray-900 dark:text-gray-100 transition-colors duration-200"
@@ -625,7 +639,11 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
                 </button>
                 <button
                   onClick={() => {
-                    editor?.chain().focus().setFontFamily('Times New Roman').run();
+                    editor
+                      ?.chain()
+                      .focus()
+                      .setFontFamily("Times New Roman")
+                      .run();
                     setShowFontModal(false);
                   }}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-left text-gray-900 dark:text-gray-100 transition-colors duration-200"
@@ -634,7 +652,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
                 </button>
                 <button
                   onClick={() => {
-                    editor?.chain().focus().setFontFamily('Courier New').run();
+                    editor?.chain().focus().setFontFamily("Courier New").run();
                     setShowFontModal(false);
                   }}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-left text-gray-900 dark:text-gray-100 transition-colors duration-200"
@@ -643,7 +661,7 @@ export default function Tiptap({ initialContent = '', onChange }: TiptapProps) {
                 </button>
                 <button
                   onClick={() => {
-                    editor?.chain().focus().setFontFamily('Georgia').run();
+                    editor?.chain().focus().setFontFamily("Georgia").run();
                     setShowFontModal(false);
                   }}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-left text-gray-900 dark:text-gray-100 transition-colors duration-200"

@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { Plus, Home } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -70,62 +70,70 @@ export function AppSidebar() {
     checkLoginStatus();
   }, [useLocalStorage]);
 
-  // 获取用户笔记
-  useEffect(() => {
-    async function loadNotes() {
-      setLoading(true);
-      try {
-        if (useLocalStorage) {
-          setNotes(getLocalNotes());
-          setTags(getLocalTags());
-        } else {
-          const supabase = createClient();
-          if (!supabase) {
-            setNotes([]);
-            return;
-          }
-
-          const userId = await getUserId();
-          if (!userId) {
-            setNotes([]);
-            setTags([]);
-            return;
-          }
-
-          const { data, error } = await supabase
-            .from("notes")
-            .select("*")
-            .eq("user_id", userId)
-            .order("updated_at", { ascending: false });
-
-          if (error) {
-            console.error("Error loading notes:", error);
-            setNotes([]);
-          } else {
-            setNotes((data as Note[]) || []);
-          }
-
-          // 加载标签
-          const { data: tagsData } = await supabase
-            .from("tags")
-            .select("*")
-            .eq("user_id", userId)
-            .order("name");
-
-          if (tagsData) {
-            setTags(tagsData as TagType[]);
-          }
+  // 加载笔记的函数
+  const loadNotes = useCallback(async () => {
+    setLoading(true);
+    try {
+      if (useLocalStorage) {
+        setNotes(getLocalNotes());
+        setTags(getLocalTags());
+      } else {
+        const supabase = createClient();
+        if (!supabase) {
+          setNotes([]);
+          return;
         }
-      } catch (error) {
-        console.error("Failed to load notes:", error);
-        setNotes([]);
-      } finally {
-        setLoading(false);
-      }
-    }
 
-    loadNotes();
+        const userId = await getUserId();
+        if (!userId) {
+          setNotes([]);
+          setTags([]);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("notes")
+          .select("*")
+          .eq("user_id", userId)
+          .order("updated_at", { ascending: false });
+
+        if (error) {
+          console.error("Error loading notes:", error);
+          setNotes([]);
+        } else {
+          setNotes((data as Note[]) || []);
+        }
+
+        // 加载标签
+        const { data: tagsData } = await supabase
+          .from("tags")
+          .select("*")
+          .eq("user_id", userId)
+          .order("name");
+
+        if (tagsData) {
+          setTags(tagsData as TagType[]);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load notes:", error);
+      setNotes([]);
+    } finally {
+      setLoading(false);
+    }
   }, [useLocalStorage]);
+
+  // 获取用户笔记 - 初始加载和 useLocalStorage 变化时
+  useEffect(() => {
+    loadNotes();
+  }, [loadNotes]);
+
+  // 监听 pathname 变化，当路由变化时重新加载笔记
+  useEffect(() => {
+    if (pathname) {
+      loadNotes();
+    }
+  }, [pathname, loadNotes]);
 
   const filteredNotes = useMemo(() => {
     if (!searchQuery && selectedTags.length === 0) {
