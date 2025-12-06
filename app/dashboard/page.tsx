@@ -274,7 +274,7 @@ export default function DashboardPage() {
       </div>
     );
   }
-
+  
   return (
     <div className="p-6">
       <div className="mb-8">

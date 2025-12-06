@@ -33,6 +33,7 @@ import { SidebarSearch } from "@/components/sidebar-search";
 import { SidebarTagsSection } from "@/components/sidebar-tags-section";
 import { SidebarNotesList } from "@/components/sidebar-notes-list";
 import type { Note, Tag as TagType } from "@/types/note";
+import { useSidebar } from "@/components/ui/sidebar";
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -47,6 +48,9 @@ export function AppSidebar() {
   const [tags, setTags] = useState<TagType[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [loginStatus, setLoginStatus] = useState("登录/注册");
+
+  // 侧边栏打开状态
+  const { state } = useSidebar(); // expanded | collapsed
 
   // 检查登录状态
   useEffect(() => {
@@ -309,10 +313,10 @@ export function AppSidebar() {
         prev.map((n) =>
           n.id === noteId
             ? {
-                ...n,
-                title: trimmedTitle,
-                updated_at: new Date().toISOString(),
-              }
+              ...n,
+              title: trimmedTitle,
+              updated_at: new Date().toISOString(),
+            }
             : n
         )
       );
@@ -352,7 +356,7 @@ export function AppSidebar() {
   return (
     <Sidebar
       collapsible="icon"
-      className="w-64 min-w-64 max-w-64 overflow-hidden"
+      className={(state === "collapsed" ? "w-0" : "w-64 min-w-64 max-w-64") + " overflow-hidden"}
     >
       <SidebarHeaderComponent />
 

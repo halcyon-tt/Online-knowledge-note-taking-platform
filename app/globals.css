@@ -6,6 +6,8 @@
 
 @custom-variant dark (&:is(.dark *));
 
+
+
 /* Tiptap 编辑器样式 */
 .ProseMirror {
   min-height: 500px;

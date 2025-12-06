@@ -196,7 +196,7 @@ export function addTagToNote(noteId: string, tagName: string): Note | null {
     notes[index] = {
       ...notes[index],
       tags: [...currentTags, tagName],
-      updated_at: new Date().toISOString(),
+      // updated_at: new Date().toISOString(),
     };
     saveLocalNotes(notes);
   }

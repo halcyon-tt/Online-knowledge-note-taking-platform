@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,11 +61,11 @@ export function NoteTagManager({
     loadTags();
   }, [useLocalStorage]);
 
-  const handleAddTag = async (tagName: string) => {
-    if (noteTags.includes(tagName)) return;
+  const handleAddTag = async (tagId: string) => {
+    // if (noteTags.includes(tagName)) return;
 
     if (useLocalStorage) {
-      addTagToNote(noteId, tagName);
+      addTagToNote(noteId, tagId);
       const updatedNote = getLocalNotes().find((n) => n.id === noteId);
       if (updatedNote) {
         onTagsChange(updatedNote.tags || []);
@@ -74,14 +74,14 @@ export function NoteTagManager({
       const supabase = createClient();
       if (!supabase) return;
 
-      const newTags = [...noteTags, tagName];
+      // const newTags = [...noteTags, tagId, noteId];
+      // console.log("Updating tags to:", newTags);
       const { error } = await supabase
-        .from("notes")
-        .update({ tags: newTags, updated_at: new Date().toISOString() })
-        .eq("id", noteId);
+        .from("note_tags")
+        .insert({ tag_id: tagId, noteId: noteId ,user_id: await getUserId()});
 
       if (!error) {
-        onTagsChange(newTags);
+        onTagsChange([...noteTags, tagId]);
       }
     }
   };
@@ -151,7 +151,7 @@ export function NoteTagManager({
                   variant="outline"
                   className="cursor-pointer text-xs h-6 hover:bg-accent"
                   onClick={() => {
-                    handleAddTag(tag.name);
+                    handleAddTag(tag.id);
                     setOpen(false);
                   }}
                 >
