@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { getUserId } from "@/lib/auth-utils";
-import { createLocalFolder, createLocalNote, getLocalFolders, getLocalNotes } from "@/lib/local-storage";
+import { createLocalFolder, createLocalNote, getLocalFolders, getLocalNotes, updateLocalFolder } from "@/lib/local-storage";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Folder, Note } from "@/types/note";
@@ -16,60 +16,81 @@ export default function DashboardPage() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
+  const [draggingOverFolderId, setDraggingOverFolderId] = useState<string | null>(null);
   const useLocalStorage = !isSupabaseConfigured();
 
+  // 加载数据
   useEffect(() => {
-    async function loadNotes() {
+    async function loadData() {
+      setLoading(true);
+
       if (useLocalStorage) {
-        setNotes(getLocalNotes().slice(0, 6));
+        const localNotes = getLocalNotes();
+        const localFolders = getLocalFolders();
+
+        // 获取所有文件夹中的笔记ID
+        const noteIdsInFolders = new Set<string>();
+        localFolders.forEach(folder => {
+          if (folder.notes_id) {
+            const ids = folder.notes_id.split(',').filter(id => id.trim() !== '');
+            ids.forEach(id => noteIdsInFolders.add(id));
+          }
+        });
+
+        // 过滤掉已经在文件夹中的笔记
+        const filteredNotes = localNotes.filter(note => !noteIdsInFolders.has(note.id));
+
+        setNotes(filteredNotes.slice(0, 6));
+        setFolders(localFolders.slice(0, 6));
       } else {
         const supabase = createClient();
         if (supabase) {
           const userId = await getUserId();
           if (userId) {
-            const { data } = await supabase
-              .from("notes")
-              .select("*")
-              .eq("user_id", userId)
-              .order("updated_at", { ascending: false })
-              .limit(6);
-            setNotes((data as Note[]) || []);
-          } else {
-            setNotes([]);
+            // 同时获取笔记和文件夹
+            const [notesResult, foldersResult] = await Promise.all([
+              supabase
+                .from("notes")
+                .select("*")
+                .eq("user_id", userId)
+                .order("updated_at", { ascending: false })
+                .limit(50), // 获取更多以便过滤
+              supabase
+                .from("folders")
+                .select("*")
+                .eq("user_id", userId)
+                .order("updated_at", { ascending: false })
+                .limit(6)
+            ]);
+
+            const allNotes = (notesResult.data as Note[]) || [];
+            const allFolders = (foldersResult.data as Folder[]) || [];
+
+            // 获取所有文件夹中的笔记ID
+            const noteIdsInFolders = new Set<string>();
+            allFolders.forEach(folder => {
+              if (folder.notes_id) {
+                const ids = folder.notes_id.split(',').filter(id => id.trim() !== '');
+                ids.forEach(id => noteIdsInFolders.add(id));
+              }
+            });
+
+            // 过滤掉已经在文件夹中的笔记
+            const filteredNotes = allNotes.filter(note => !noteIdsInFolders.has(note.id));
+
+            setNotes(filteredNotes.slice(0, 6));
+            setFolders(allFolders);
           }
         }
       }
       setLoading(false);
     }
 
-    loadNotes();
-
-    async function loadFolders() {
-      if (useLocalStorage) {
-        setFolders(getLocalFolders().slice(0, 6));
-      } else {
-        const supabase = createClient();
-        if (supabase) {
-          const userId = await getUserId();
-          if (userId) {
-            const { data } = await supabase
-              .from("folders")
-              .select("*")
-              .eq("user_id", userId)
-              .order("updated_at", { ascending: false })
-              .limit(6);
-            setFolders((data as Folder[]) || []);
-          } else {
-            setFolders([]);
-          }
-        }
-      }
-      setLoading(false);
-    }
-
-    loadFolders();
+    loadData();
   }, [useLocalStorage]);
 
+  // 创建笔记
   const handleCreateNote = async () => {
     if (useLocalStorage) {
       const newNote = createLocalNote({ title: "未命名笔记", content: "" });
@@ -95,6 +116,8 @@ export default function DashboardPage() {
       }
     }
   };
+
+  // 创建文件夹
   const handleCreateFolder = async () => {
     const name = window.prompt("请输入文件夹名:");
     if (!name) {
@@ -103,7 +126,6 @@ export default function DashboardPage() {
     }
     if (useLocalStorage) {
       const newFolder = createLocalFolder({ name });
-
       setFolders((prev) => [newFolder as Folder, ...prev]);
     } else {
       const supabase = createClient();
@@ -125,7 +147,125 @@ export default function DashboardPage() {
         setFolders((prev) => [data as Folder, ...prev]);
       }
     }
-  }
+  };
+
+  // 处理拖拽开始
+  const handleDragStart = (e: React.DragEvent, noteId: string) => {
+    e.dataTransfer.setData("noteId", noteId);
+    setDraggingNoteId(noteId);
+  };
+
+  // 处理拖拽进入文件夹
+  const handleDragOver = (e: React.DragEvent, folderId: string) => {
+    e.preventDefault();
+    setDraggingOverFolderId(folderId);
+  };
+
+  // 处理拖拽离开文件夹
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDraggingOverFolderId(null);
+  };
+
+  // 处理拖拽放置
+  const handleDrop = async (e: React.DragEvent, folderId: string) => {
+    e.preventDefault();
+    const noteId = e.dataTransfer.getData("noteId");
+
+    if (!noteId) return;
+
+    // 找到目标文件夹
+    const targetFolder = folders.find(f => f.id === folderId);
+    if (!targetFolder) return;
+
+    // 找到被拖拽的笔记
+    const draggedNote = notes.find(n => n.id === noteId);
+    if (!draggedNote) return;
+
+    if (useLocalStorage) {
+      // 本地存储模式
+      const currentNoteIds = targetFolder.notes_id
+        ? targetFolder.notes_id.split(',').filter(id => id.trim() !== '')
+        : [];
+
+      // 检查是否已经存在
+      if (!currentNoteIds.includes(noteId)) {
+        const newNoteIds = [...currentNoteIds, noteId].join(',');
+        const updatedFolder = { ...targetFolder, notes_id: newNoteIds };
+
+        // 更新本地存储
+        updateLocalFolder(updatedFolder);
+
+        // 更新状态
+        setFolders(prev =>
+          prev.map(f => f.id === folderId ? updatedFolder : f)
+        );
+
+        // 从笔记列表中移除
+        setNotes(prev => prev.filter(n => n.id !== noteId));
+      }
+    } else {
+      // Supabase 模式
+      const supabase = createClient();
+      if (!supabase) return;
+
+      const userId = await getUserId();
+      if (!userId) {
+        alert("请先登录");
+        return;
+      }
+
+      const currentNoteIds = targetFolder.notes_id
+        ? targetFolder.notes_id.split(',').filter(id => id.trim() !== '')
+        : [];
+
+      // 检查是否已经存在
+      if (!currentNoteIds.includes(noteId)) {
+        const newNoteIds = [...currentNoteIds, noteId].join(',');
+
+        // 更新数据库
+        const { data, error } = await supabase
+          .from("folders")
+          .update({
+            notes_id: newNoteIds,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", folderId)
+          .eq("user_id", userId)
+          .select()
+          .single();
+
+        if (error) {
+          console.error("更新文件夹失败:", error);
+          alert("添加笔记到文件夹失败");
+          return;
+        }
+
+        if (data) {
+          // 更新文件夹状态
+          setFolders(prev =>
+            prev.map(f => f.id === folderId ? data as Folder : f)
+          );
+
+          // 从笔记列表中移除
+          setNotes(prev => prev.filter(n => n.id !== noteId));
+
+          alert(`笔记已添加到文件夹 ${targetFolder.name}`);
+        }
+      } else {
+        alert("该笔记已在此文件夹中");
+      }
+    }
+
+    setDraggingOverFolderId(null);
+    setDraggingNoteId(null);
+  };
+
+  // 重置拖拽状态
+  const handleDragEnd = () => {
+    setDraggingNoteId(null);
+    setDraggingOverFolderId(null);
+  };
 
   if (loading) {
     return (
@@ -173,47 +313,96 @@ export default function DashboardPage() {
             </Button>
           </div>
         </Card>
-        {/* 文件夹页面待写 */}
+
+        {/* 文件夹卡片 */}
         {folders.map((folder) => (
-          <Link key={folder.id} href={`/dashboard/folder/${folder.id}`}>
-            <Card className="hover:bg-accent transition-colors cursor-pointer h-full">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <FileStack className="h-4 w-4" />
-                  <span className="truncate">{folder.name}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground mt-3">
-                  {new Date(folder.updated_at).toLocaleDateString("zh-CN")}
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
+          <div
+            key={folder.id}
+            onDragOver={(e) => handleDragOver(e, folder.id)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, folder.id)}
+            onDragEnd={handleDragEnd}
+          >
+            <Link href={`/dashboard/folder/${folder.id}`}>
+              <Card
+                className={`
+                  hover:bg-accent transition-colors cursor-pointer h-full
+                  ${draggingOverFolderId === folder.id ? 'ring-2 ring-primary bg-primary/10' : ''}
+                `}
+              >
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <FileStack className="h-4 w-4" />
+                    <span className="truncate">{folder.name}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    {folder.notes_id
+                      ? `${folder.notes_id.split(',').filter(id => id.trim() !== '').length} 个笔记`
+                      : '暂无笔记'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {new Date(folder.updated_at).toLocaleDateString("zh-CN")}
+                  </p>
+                  {draggingOverFolderId === folder.id && (
+                    <div className="mt-4 p-2 text-center text-sm text-primary bg-primary/10 rounded">
+                      拖拽到此处添加
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
         ))}
+
+        {/* 笔记卡片 */}
         {notes.map((note) => (
-          <Link key={note.id} href={`/dashboard/notes/${note.id}`}>
-            <Card className="hover:bg-accent transition-colors cursor-pointer h-full">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <FileText className="h-4 w-4" />
-                  <span className="truncate">{note.title}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {note.content
-                    ? note.content.replace(/<[^>]*>/g, "").slice(0, 100)
-                    : "暂无内容"}
-                </p>
-                <p className="text-xs text-muted-foreground mt-3">
-                  {new Date(note.updated_at).toLocaleDateString("zh-CN")}
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
+          <div
+            key={note.id}
+            draggable
+            onDragStart={(e) => handleDragStart(e, note.id)}
+            onDragEnd={handleDragEnd}
+            className={`
+              cursor-move transition-opacity
+              ${draggingNoteId === note.id ? 'opacity-50' : ''}
+            `}
+          >
+            <Link href={`/dashboard/notes/${note.id}`}>
+              <Card className="hover:bg-accent transition-colors cursor-pointer h-full">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <FileText className="h-4 w-4" />
+                    <span className="truncate">{note.title}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground line-clamp-2">
+                    {note.content
+                      ? note.content.replace(/<[^>]*>/g, "").slice(0, 100)
+                      : "暂无内容"}
+                  </p>
+                  <div className="flex items-center justify-between mt-3">
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(note.updated_at).toLocaleDateString("zh-CN")}
+                    </p>
+                    <div className="text-xs text-muted-foreground px-2 py-1 bg-muted rounded">
+                      可拖拽
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
         ))}
       </div>
+
+      {/* 拖拽提示 */}
+      {draggingNoteId && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg">
+          拖拽笔记到文件夹上进行添加
+        </div>
+      )}
     </div>
   );
 }

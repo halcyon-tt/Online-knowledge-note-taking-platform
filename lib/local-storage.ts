@@ -32,6 +32,33 @@ export function saveLocalFolders(folders: Folder[]) {
   localStorage.setItem(FOLDERS_STORAGE_KEY, JSON.stringify(folders));
 }
 
+// 在 lib/local-storage.ts 中添加以下函数
+export function updateLocalFolder(updatedFolder: Folder) {
+  const folders = getLocalFolders();
+  const index = folders.findIndex(f => f.id === updatedFolder.id);
+  if (index !== -1) {
+    folders[index] = updatedFolder;
+    localStorage.setItem('folders', JSON.stringify(folders));
+  }
+  return updatedFolder;
+}
+
+// 在 lib/local-storage.ts 中添加以下函数
+
+// 获取单个文件夹
+export function getLocalFolder(folderId: string): Folder | null {
+  const folders = getLocalFolders();
+  return folders.find(folder => folder.id === folderId) || null;
+}
+
+// 删除文件夹
+export function deleteLocalFolder(folderId: string): void {
+  const folders = getLocalFolders();
+  const newFolders = folders.filter(folder => folder.id !== folderId);
+  localStorage.setItem('folders', JSON.stringify(newFolders));
+}
+
+
 // 获取单个笔记
 export function getLocalNote(id: string): Note | null {
   const notes = getLocalNotes();
