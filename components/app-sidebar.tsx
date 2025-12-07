@@ -3,7 +3,7 @@
 import type React from "react";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { Plus, Home } from "lucide-react";
+import { Plus, Home, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
@@ -32,6 +32,7 @@ import { SidebarHeaderComponent } from "@/components/sidebar-header";
 import { SidebarSearch } from "@/components/sidebar-search";
 import { SidebarTagsSection } from "@/components/sidebar-tags-section";
 import { SidebarNotesList } from "@/components/sidebar-notes-list";
+import { AISearchDialog } from "@/components/ai-search-dialog";
 import type { Note, Tag as TagType } from "@/types/note";
 import { useSidebar } from "@/components/ui/sidebar";
 
@@ -148,7 +149,6 @@ export function AppSidebar() {
       return searchLocalNotes(searchQuery, selectedTags);
     }
 
-    // Supabase 模式下的前端筛选
     const lowerQuery = searchQuery.toLowerCase();
     return notes.filter((note) => {
       const matchesQuery =
@@ -313,10 +313,10 @@ export function AppSidebar() {
         prev.map((n) =>
           n.id === noteId
             ? {
-              ...n,
-              title: trimmedTitle,
-              updated_at: new Date().toISOString(),
-            }
+                ...n,
+                title: trimmedTitle,
+                updated_at: new Date().toISOString(),
+              }
             : n
         )
       );
@@ -356,7 +356,10 @@ export function AppSidebar() {
   return (
     <Sidebar
       collapsible="icon"
-      className={(state === "collapsed" ? "w-0" : "w-64 min-w-64 max-w-64") + " overflow-hidden"}
+      className={
+        (state === "collapsed" ? "w-0" : "w-64 min-w-64 max-w-64") +
+        " overflow-hidden"
+      }
     >
       <SidebarHeaderComponent />
 
@@ -369,6 +372,17 @@ export function AppSidebar() {
                   <Link href="/dashboard">
                     <Home className="h-4 w-4" />
                     <span>首页</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === "/dashboard/ai-chat"}
+                >
+                  <Link href="/dashboard/ai-chat">
+                    <Sparkles className="h-4 w-4" />
+                    <span>AI 智能对话</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -387,6 +401,10 @@ export function AppSidebar() {
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
         />
+
+        <SidebarGroup>
+          <AISearchDialog />
+        </SidebarGroup>
 
         <SidebarTagsSection
           tags={tags}
@@ -418,7 +436,6 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-border p-4">
         <Button onClick={handleLogin} className="w-full">
           {loginStatus}
-          {/* 登录/注册 */}
         </Button>
         {useLocalStorage && (
           <p className="text-xs text-yellow-600 mt-2 text-center">
