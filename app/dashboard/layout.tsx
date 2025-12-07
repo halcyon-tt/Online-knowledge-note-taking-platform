@@ -1,16 +1,12 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useState } from "react";
 import {
   SidebarProvider,
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import { isSupabaseConfigured, createClient } from "@/lib/supabase/client";
-import { getLocalNotes } from "@/lib/local-storage";
-import type { Note } from "@/types/note";
 
 function MainContent({ children }: { children: React.ReactNode }) {
   const { state } = useSidebar();
@@ -18,7 +14,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      className="flex-1 flex flex-col min-h-screen transition-all duration-200 ease-linear"
+      className="flex-1 flex flex-col h-screen overflow-hidden transition-all duration-200 ease-linear"
       style={{
         marginLeft: isExpanded ? "20rem" : "10rem",
       }}
@@ -27,7 +23,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
         <SidebarTrigger className="-ml-1" />
         <span className="text-sm text-muted-foreground">Markdown 笔记</span>
       </header>
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 overflow-auto hide-scrollbar">{children}</main>
     </div>
   );
 }
@@ -37,7 +33,6 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-
   return (
     <SidebarProvider>
       <AppSidebar />

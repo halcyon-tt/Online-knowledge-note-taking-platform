@@ -16,7 +16,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { getUserId } from "@/lib/auth-utils";
 import { getLocalNotes } from "@/lib/local-storage";
@@ -39,7 +38,7 @@ export default function AIChatPage() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const useLocalStorage = !isSupabaseConfigured();
 
@@ -71,9 +70,7 @@ export default function AIChatPage() {
 
   // 滚动到底部
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   // 发送消息
@@ -144,9 +141,9 @@ export default function AIChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)]">
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden">
       {/* 顶部标题栏 */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
             <Sparkles className="h-5 w-5 text-primary" />
@@ -166,8 +163,7 @@ export default function AIChatPage() {
         )}
       </div>
 
-      {/* 对话内容区域 */}
-      <ScrollArea className="flex-1 px-6" ref={scrollAreaRef}>
+      <div className="flex-1 overflow-y-auto hide-scrollbar px-6">
         <div className="max-w-3xl mx-auto py-6 space-y-6">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -303,11 +299,14 @@ export default function AIChatPage() {
               </div>
             </div>
           )}
+
+          {/* 滚动锚点 */}
+          <div ref={messagesEndRef} />
         </div>
-      </ScrollArea>
+      </div>
 
       {/* 输入区域 */}
-      <div className="border-t border-border px-6 py-4">
+      <div className="border-t border-border px-6 py-4 shrink-0">
         <div className="max-w-3xl mx-auto">
           <div className="flex gap-3">
             <Textarea

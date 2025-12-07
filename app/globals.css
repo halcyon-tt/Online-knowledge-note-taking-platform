@@ -1,12 +1,14 @@
 @import "tailwindcss";
-/* @plugin "@tailwindcss/typography"; */
-/* 使用 tailwindcss-animate 替代 tw-animate-css，或直接移除 */
-/* 如果你安装了 tw-animate-css 就保留下面这行，否则删除 */
-/* @import "tw-animate-css"; */
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
-
+/* 全局隐藏 html 和 body 的滚动条 */
+html,
+body {
+  overflow: hidden;
+  height: 100%;
+}
 
 /* Tiptap 编辑器样式 */
 .ProseMirror {
@@ -29,9 +31,11 @@
   padding-bottom: 0.3em;
 }
 
+/* 黑夜模式一级标题颜色改为更明显的亮白色 */
 .dark .tiptap-editor h1 {
-  color: #f7fafc;
-  border-bottom-color: #4a5568;
+  color: #ffffff;
+  border-bottom-color: #60a5fa;
+  text-shadow: 0 0 1px rgba(255, 255, 255, 0.3);
 }
 
 .tiptap-editor h2 {
@@ -44,12 +48,23 @@
   padding-bottom: 0.3em;
 }
 
+/* 黑夜模式二级标题颜色 */
+.dark .tiptap-editor h2 {
+  color: #f0f0f0;
+  border-bottom-color: #4b5563;
+}
+
 .tiptap-editor h3 {
   font-size: 1.5em;
   font-weight: bold;
   margin-top: 1.5em;
   margin-bottom: 0.5em;
   color: #4a5568;
+}
+
+/* 黑夜模式三级标题颜色 */
+.dark .tiptap-editor h3 {
+  color: #e5e5e5;
 }
 
 .tiptap-editor h4 {
@@ -241,7 +256,7 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
-  --radius: 0.5rem;
+  --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -258,7 +273,7 @@
 }
 
 .dark {
-  --background: oklch(0.12 0 0);
+  --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.145 0 0);
   --card-foreground: oklch(0.985 0 0);
@@ -277,19 +292,19 @@
   --border: oklch(0.269 0 0);
   --input: oklch(0.269 0 0);
   --ring: oklch(0.439 0 0);
-  --sidebar: oklch(0.145 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.985 0 0);
-  --sidebar-primary-foreground: oklch(0.205 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
 }
 
 @theme inline {
@@ -359,4 +374,14 @@
 
 .ProseMirror:focus {
   outline: none;
+}
+
+/* 隐藏全局滚动条但保持滚动功能 */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }
