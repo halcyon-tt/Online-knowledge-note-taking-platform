@@ -175,19 +175,30 @@ export default function DashboardPage() {
 
   // 处理拖拽进入文件夹
   const handleDragOver = (e: React.DragEvent, folderId: string) => {
-    e.preventDefault();
-    setDraggingOverFolderId(folderId);
+    // 只有在正在拖拽笔记时才阻止默认行为
+    if (draggingNoteId) {
+      e.preventDefault();
+      setDraggingOverFolderId(folderId);
+    }
   };
 
   // 处理拖拽离开文件夹
   const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDraggingOverFolderId(null);
+    if (draggingNoteId) {
+      e.preventDefault();
+      setDraggingOverFolderId(null);
+    }
   };
 
   // 处理拖拽放置
   const handleDrop = async (e: React.DragEvent, folderId: string) => {
+    // 只有在正在拖拽笔记时才处理
+    if (!draggingNoteId) {
+      return;
+    }
     e.preventDefault();
+    e.stopPropagation();
+
     const noteId = e.dataTransfer.getData("noteId");
 
     if (!noteId) return;
@@ -336,84 +347,80 @@ export default function DashboardPage() {
 
         {/* 文件夹卡片 */}
         {folders.map((folder) => (
-          <div
+          <Card
             key={folder.id}
+            className={`
+              hover:bg-accent transition-colors cursor-pointer h-full
+              ${draggingOverFolderId === folder.id ? "ring-2 ring-primary bg-primary/10" : ""}
+            `}
             onDragOver={(e) => handleDragOver(e, folder.id)}
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, folder.id)}
             onDragEnd={handleDragEnd}
           >
-            <Link href={`/dashboard/folder/${folder.id}`}>
-              <Card
-                className={`
-                  hover:bg-accent transition-colors cursor-pointer h-full
-                  ${draggingOverFolderId === folder.id ? "ring-2 ring-primary bg-primary/10" : ""}
-                `}
-              >
-                <CardHeader className="pb-2 md:pb-4">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <FileStack className="h-4 w-4" />
-                    <span className="truncate">{folder.name}</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-xs text-muted-foreground mt-2 md:mt-3">
-                    {folder.notes_id
-                      ? `${folder.notes_id.split(",").filter((id) => id.trim() !== "").length} 个笔记`
-                      : "暂无笔记"}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {new Date(folder.updated_at).toLocaleDateString("zh-CN")}
-                  </p>
-                  {draggingOverFolderId === folder.id && (
-                    <div className="mt-4 p-2 text-center text-sm text-primary bg-primary/10 rounded">
-                      拖拽到此处添加
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+            <Link href={`/dashboard/folder/${folder.id}`} className="block">
+              <CardHeader className="pb-2 md:pb-4">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <FileStack className="h-4 w-4" />
+                  <span className="truncate">{folder.name}</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground mt-2 md:mt-3">
+                  {folder.notes_id
+                    ? `${folder.notes_id.split(",").filter((id) => id.trim() !== "").length} 个笔记`
+                    : "暂无笔记"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {new Date(folder.updated_at).toLocaleDateString("zh-CN")}
+                </p>
+                {draggingOverFolderId === folder.id && (
+                  <div className="mt-4 p-2 text-center text-sm text-primary bg-primary/10 rounded">
+                    拖拽到此处添加
+                  </div>
+                )}
+              </CardContent>
             </Link>
-          </div>
+          </Card>
         ))}
 
         {/* 笔记卡片 */}
         {notes.map((note) => (
-          <div
+          <Link
             key={note.id}
+            href={`/dashboard/notes/${note.id}`}
             draggable
             onDragStart={(e) => handleDragStart(e, note.id)}
             onDragEnd={handleDragEnd}
             className={`
-              cursor-move transition-opacity
+              cursor-move transition-opacity block
               ${draggingNoteId === note.id ? "opacity-50" : ""}
             `}
           >
-            <Link href={`/dashboard/notes/${note.id}`}>
-              <Card className="hover:bg-accent transition-colors cursor-pointer h-full">
-                <CardHeader className="pb-2 md:pb-4">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <FileText className="h-4 w-4" />
-                    <span className="truncate">{note.title}</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {note.content
-                      ? note.content.replace(/<[^>]*>/g, "").slice(0, 100)
-                      : "暂无内容"}
+            <Card className="hover:bg-accent transition-colors cursor-pointer h-full">
+              <CardHeader className="pb-2 md:pb-4">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <FileText className="h-4 w-4" />
+                  <span className="truncate">{note.title}</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground line-clamp-2">
+                  {note.content
+                    ? note.content.replace(/<[^>]*>/g, "").slice(0, 100)
+                    : "暂无内容"}
+                </p>
+                <div className="flex items-center justify-between mt-2 md:mt-3">
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(note.updated_at).toLocaleDateString("zh-CN")}
                   </p>
-                  <div className="flex items-center justify-between mt-2 md:mt-3">
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(note.updated_at).toLocaleDateString("zh-CN")}
-                    </p>
-                    <div className="hidden sm:block text-xs text-muted-foreground px-2 py-1 bg-muted rounded">
-                      可拖拽
-                    </div>
+                  <div className="hidden sm:block text-xs text-muted-foreground px-2 py-1 bg-muted rounded">
+                    可拖拽
                   </div>
-                </CardContent>
-              </Card>
-            </Link>
-          </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
 
