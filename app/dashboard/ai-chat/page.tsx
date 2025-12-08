@@ -143,41 +143,49 @@ export default function AIChatPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden">
       {/* 顶部标题栏 */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-border shrink-0 gap-3 sm:gap-0">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
-            <Sparkles className="h-5 w-5 text-primary" />
+            <Sparkles className="h-4 w-4 md:h-5 md:w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold">AI 智能助手</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-lg md:text-xl font-semibold">AI 智能助手</h1>
+            <p className="text-xs md:text-sm text-muted-foreground">
               检索、摘要、聚合您的笔记内容
             </p>
           </div>
         </div>
         {messages.length > 0 && (
-          <Button variant="outline" size="sm" onClick={handleClear}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleClear}
+            className="self-end sm:self-auto bg-transparent"
+          >
             <Trash2 className="h-4 w-4 mr-2" />
             清空对话
           </Button>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto hide-scrollbar px-6">
-        <div className="max-w-3xl mx-auto py-6 space-y-6">
+      <div className="flex-1 overflow-y-auto hide-scrollbar px-4 md:px-6">
+        <div className="max-w-3xl mx-auto py-4 md:py-6 space-y-4 md:space-y-6">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="p-4 rounded-full bg-primary/10 mb-4">
-                <Sparkles className="h-8 w-8 text-primary" />
+            <div className="flex flex-col items-center justify-center py-8 md:py-16 text-center">
+              <div className="p-3 md:p-4 rounded-full bg-primary/10 mb-3 md:mb-4">
+                <Sparkles className="h-6 w-6 md:h-8 md:w-8 text-primary" />
               </div>
-              <h2 className="text-lg font-medium mb-2">AI 智能助手</h2>
-              <p className="text-muted-foreground max-w-md mb-8">
+              <h2 className="text-base md:text-lg font-medium mb-2">
+                AI 智能助手
+              </h2>
+              <p className="text-muted-foreground max-w-md mb-6 md:mb-8 text-sm md:text-base px-4">
                 支持智能检索、内容摘要和信息聚合，让 AI 帮您整理和分析笔记
               </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-2xl mb-8">
+              {/* 功能卡片 */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 w-full max-w-2xl mb-6 md:mb-8 px-2">
                 <Card className="text-left">
-                  <CardContent className="p-4">
+                  <CardContent className="p-3 md:p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <Search className="h-4 w-4 text-blue-500" />
                       <span className="font-medium text-sm">智能检索</span>
@@ -188,7 +196,7 @@ export default function AIChatPage() {
                   </CardContent>
                 </Card>
                 <Card className="text-left">
-                  <CardContent className="p-4">
+                  <CardContent className="p-3 md:p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <BookOpen className="h-4 w-4 text-green-500" />
                       <span className="font-medium text-sm">内容摘要</span>
@@ -199,7 +207,7 @@ export default function AIChatPage() {
                   </CardContent>
                 </Card>
                 <Card className="text-left">
-                  <CardContent className="p-4">
+                  <CardContent className="p-3 md:p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <Layers className="h-4 w-4 text-purple-500" />
                       <span className="font-medium text-sm">信息聚合</span>
@@ -211,9 +219,10 @@ export default function AIChatPage() {
                 </Card>
               </div>
 
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground px-2">
                 <p className="mb-3">试试这些问题：</p>
-                <div className="flex flex-wrap gap-2 justify-center">
+                {/* 建议按钮 */}
+                <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 justify-center">
                   {[
                     "帮我总结所有笔记的核心内容",
                     "整理我关于学习的笔记",
@@ -225,7 +234,7 @@ export default function AIChatPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => setInput(suggestion)}
-                      className="text-xs"
+                      className="text-xs w-full sm:w-auto"
                     >
                       {suggestion}
                     </Button>
@@ -240,10 +249,10 @@ export default function AIChatPage() {
                 className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[85%] ${
+                  className={`max-w-[90%] sm:max-w-[85%] ${
                     message.role === "user"
-                      ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-3"
-                      : "bg-muted rounded-2xl rounded-tl-sm px-4 py-3"
+                      ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-3 md:px-4 py-2 md:py-3"
+                      : "bg-muted rounded-2xl rounded-tl-sm px-3 md:px-4 py-2 md:py-3"
                   }`}
                 >
                   <p className="whitespace-pre-wrap text-sm leading-relaxed">
@@ -252,7 +261,7 @@ export default function AIChatPage() {
 
                   {/* 相关笔记 */}
                   {message.relatedNotes && message.relatedNotes.length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-border/50">
+                    <div className="mt-3 md:mt-4 pt-2 md:pt-3 border-t border-border/50">
                       <p className="text-xs font-medium mb-2 opacity-70">
                         相关笔记：
                       </p>
@@ -264,7 +273,7 @@ export default function AIChatPage() {
                             className="block"
                           >
                             <Card className="hover:bg-background/50 transition-colors">
-                              <CardContent className="p-3">
+                              <CardContent className="p-2 md:p-3">
                                 <div className="flex items-start gap-2">
                                   <FileText className="h-4 w-4 mt-0.5 shrink-0 opacity-60" />
                                   <div className="min-w-0">
@@ -291,7 +300,7 @@ export default function AIChatPage() {
           {/* 加载状态 */}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-muted rounded-2xl rounded-tl-sm px-4 py-3">
+              <div className="bg-muted rounded-2xl rounded-tl-sm px-3 md:px-4 py-2 md:py-3">
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span className="text-sm">AI 正在分析您的笔记...</span>
@@ -306,16 +315,16 @@ export default function AIChatPage() {
       </div>
 
       {/* 输入区域 */}
-      <div className="border-t border-border px-6 py-4 shrink-0">
+      <div className="border-t border-border px-4 md:px-6 py-3 md:py-4 shrink-0">
         <div className="max-w-3xl mx-auto">
-          <div className="flex gap-3">
+          <div className="flex gap-2 md:gap-3">
             <Textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="输入问题进行检索，或输入总结/聚合进行智能分析..."
-              className="min-h-[44px] max-h-32 resize-none"
+              placeholder="输入问题进行检索..."
+              className="min-h-[44px] max-h-32 resize-none text-sm"
               rows={1}
             />
             <Button
@@ -332,7 +341,7 @@ export default function AIChatPage() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-2 text-center">
-            已加载 {notes.length} 篇笔记 · 支持检索、摘要、聚合功能
+            已加载 {notes.length} 篇笔记
           </p>
         </div>
       </div>

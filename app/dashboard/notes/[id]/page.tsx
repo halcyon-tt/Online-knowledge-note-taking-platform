@@ -114,18 +114,17 @@ export default function NotePage({ params }: PageProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b bg-background px-4 py-2">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">标签:</span>
+      <div className="border-b bg-background px-2 md:px-4 py-2">
+        <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
+          <span className="text-sm text-muted-foreground shrink-0">标签:</span>
           <NoteTagManager
             noteId={id}
             noteTags={note.tags || []}
             onTagsChange={handleTagsChange}
-            
           />
         </div>
       </div>
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto hide-scrollbar">
         <NoteEditor
           initialContent={note.content || ""}
           onChange={handleContentChange}

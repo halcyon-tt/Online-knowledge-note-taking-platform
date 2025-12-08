@@ -10,17 +10,31 @@ body {
   height: 100%;
 }
 
-/* Tiptap 编辑器样式 */
+/* 移动端编辑器高度和padding适配 */
 .ProseMirror {
-  min-height: 500px;
+  min-height: 400px;
+}
+
+@media (min-width: 768px) {
+  .ProseMirror {
+    min-height: 500px;
+  }
+}
+
+/* Tiptap 编辑器样式 - 移动端适配 */
+.tiptap-editor {
+  height: calc(100vh - 12rem);
+  padding: 10px;
+}
+
+@media (min-width: 768px) {
+  .tiptap-editor {
+    height: 500px;
+    padding: 15px;
+  }
 }
 
 /* Tiptap 编辑器样式 */
-.tiptap-editor {
-  height: 500px;
-  padding: 15px;
-}
-
 .tiptap-editor h1 {
   font-size: 2.5em;
   font-weight: bold;
@@ -29,6 +43,19 @@ body {
   color: #1a202c;
   border-bottom: 2px solid #e2e8f0;
   padding-bottom: 0.3em;
+}
+
+/* 移动端标题字号适配 */
+@media (max-width: 767px) {
+  .tiptap-editor h1 {
+    font-size: 1.75em;
+  }
+  .tiptap-editor h2 {
+    font-size: 1.5em;
+  }
+  .tiptap-editor h3 {
+    font-size: 1.25em;
+  }
 }
 
 /* 黑夜模式一级标题颜色改为更明显的亮白色 */
@@ -360,10 +387,6 @@ body {
 }
 
 /* Tiptap editor styles */
-.ProseMirror {
-  min-height: 400px;
-}
-
 .ProseMirror p.is-editor-empty:first-child::before {
   color: var(--muted-foreground);
   content: attr(data-placeholder);

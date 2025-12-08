@@ -17,15 +17,24 @@ import {
   ListOrdered,
   Quote,
   Code,
-  Link as LinkIcon,
-  Image as ImageIcon,
+  LinkIcon,
+  ImageIcon,
   Undo,
   Redo,
   Strikethrough,
   Highlighter,
   Type,
   Minus,
+  MoreHorizontal,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 
 interface TiptapProps {
   initialContent?: string;
@@ -176,7 +185,7 @@ export default function Tiptap({ initialContent = "", onChange }: TiptapProps) {
     if (!editor) return "";
 
     const html = editor.getHTML();
-    let markdown = html
+    const markdown = html
       .replace(/<h1>(.*?)<\/h1>/g, "# $1\n\n")
       .replace(/<h2>(.*?)<\/h2>/g, "## $1\n\n")
       .replace(/<h3>(.*?)<\/h3>/g, "### $1\n\n")
@@ -318,38 +327,38 @@ export default function Tiptap({ initialContent = "", onChange }: TiptapProps) {
 
   return (
     <div className="bg-gray-50 dark:bg-black overflow-hidden">
-      {/* 顶部工具栏 */}
+      {/* 顶部工具栏 - 移动端响应式适配 */}
       <div className="sticky top-0 z-10 bg-white dark:bg-black border-b border-gray-200 dark:border-gray-300 shadow-sm ">
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          {/* 主工具栏 */}
-          <div className="flex flex-wrap items-center gap-2 mb-3">
+        <div className="max-w-7xl mx-auto px-2 md:px-4 py-2 md:py-3">
+          {/* 主工具栏 - 移动端使用更紧凑布局 */}
+          <div className="flex flex-wrap items-center gap-1 md:gap-2 mb-2 md:mb-3">
             {/* 文本样式 */}
-            <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
+            <div className="flex items-center space-x-0.5 md:space-x-1 border-r border-gray-200 dark:border-gray-800 pr-1 md:pr-3">
               <button
                 onClick={toggleBold}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("bold") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
+                className={`p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("bold") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="粗体 (Ctrl+B)"
               >
-                <Bold className="w-5 h-5" />
+                <Bold className="w-4 h-4 md:w-5 md:h-5" />
               </button>
               <button
                 onClick={toggleItalic}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("italic") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
+                className={`p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("italic") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="斜体 (Ctrl+I)"
               >
-                <Italic className="w-5 h-5" />
+                <Italic className="w-4 h-4 md:w-5 md:h-5" />
               </button>
               <button
                 onClick={toggleStrike}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("strike") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
+                className={`hidden sm:block p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("strike") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="删除线"
               >
-                <Strikethrough className="w-5 h-5" />
+                <Strikethrough className="w-4 h-4 md:w-5 md:h-5" />
               </button>
             </div>
 
-            {/* 字体 */}
-            <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
+            {/* 字体 - 移动端隐藏 */}
+            <div className="hidden md:flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
               <button
                 onClick={() => setShowFontModal(true)}
                 className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200"
@@ -360,31 +369,31 @@ export default function Tiptap({ initialContent = "", onChange }: TiptapProps) {
             </div>
 
             {/* 标题 */}
-            <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
+            <div className="flex items-center space-x-0.5 md:space-x-1 border-r border-gray-200 dark:border-gray-800 pr-1 md:pr-3">
               <button
                 onClick={toggleHeading1}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("heading", { level: 1 }) ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
+                className={`p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("heading", { level: 1 }) ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="一级标题 (Shift+1)"
               >
-                <span className="text-sm font-bold">H1</span>
+                <span className="text-xs md:text-sm font-bold">H1</span>
               </button>
               <button
                 onClick={toggleHeading2}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("heading", { level: 2 }) ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
+                className={`p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("heading", { level: 2 }) ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="二级标题 (Shift+2)"
               >
-                <span className="text-sm font-bold">H2</span>
+                <span className="text-xs md:text-sm font-bold">H2</span>
               </button>
               <button
                 onClick={toggleHeading3}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("heading", { level: 3 }) ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
+                className={`hidden sm:block p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("heading", { level: 3 }) ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="三级标题 (Shift+3)"
               >
-                <span className="text-sm font-bold">H3</span>
+                <span className="text-xs md:text-sm font-bold">H3</span>
               </button>
               <button
                 onClick={setParagraph}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("paragraph") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
+                className={`hidden md:block p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("paragraph") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="段落"
               >
                 <span className="text-sm">正文</span>
@@ -392,61 +401,61 @@ export default function Tiptap({ initialContent = "", onChange }: TiptapProps) {
             </div>
 
             {/* 列表 */}
-            <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
+            <div className="flex items-center space-x-0.5 md:space-x-1 border-r border-gray-200 dark:border-gray-800 pr-1 md:pr-3">
               <button
                 onClick={toggleBulletList}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("bulletList") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
+                className={`p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("bulletList") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="无序列表"
               >
-                <List className="w-5 h-5" />
+                <List className="w-4 h-4 md:w-5 md:h-5" />
               </button>
               <button
                 onClick={toggleOrderedList}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("orderedList") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
+                className={`p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("orderedList") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="有序列表"
               >
-                <ListOrdered className="w-5 h-5" />
+                <ListOrdered className="w-4 h-4 md:w-5 md:h-5" />
               </button>
             </div>
 
-            {/* 引用和代码 */}
-            <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
+            {/* 引用和代码 - 移动端隐藏代码块 */}
+            <div className="flex items-center space-x-0.5 md:space-x-1 border-r border-gray-200 dark:border-gray-800 pr-1 md:pr-3">
               <button
                 onClick={toggleBlockquote}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("blockquote") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
+                className={`p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("blockquote") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="引用"
               >
-                <Quote className="w-5 h-5" />
+                <Quote className="w-4 h-4 md:w-5 md:h-5" />
               </button>
               <button
                 onClick={toggleCodeBlock}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("codeBlock") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
+                className={`hidden sm:block p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("codeBlock") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="代码块"
               >
-                <Code className="w-5 h-5" />
+                <Code className="w-4 h-4 md:w-5 md:h-5" />
               </button>
             </div>
 
-            {/* 链接和图片 */}
-            <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
+            {/* 链接和图片 - 移动端隐藏图片 */}
+            <div className="flex items-center space-x-0.5 md:space-x-1 border-r border-gray-200 dark:border-gray-800 pr-1 md:pr-3">
               <button
                 onClick={insertLink}
-                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("link") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
+                className={`p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("link") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="插入链接"
               >
-                <LinkIcon className="w-5 h-5" />
+                <LinkIcon className="w-4 h-4 md:w-5 md:h-5" />
               </button>
               <button
                 onClick={insertImage}
-                className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200"
+                className="hidden sm:block p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200"
                 title="插入图片"
               >
-                <ImageIcon className="w-5 h-5" />
+                <ImageIcon className="w-4 h-4 md:w-5 md:h-5" />
               </button>
             </div>
 
-            {/* 分隔线 */}
-            <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
+            {/* 分隔线 - 移动端隐藏 */}
+            <div className="hidden md:flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
               <button
                 onClick={setHorizontalRule}
                 className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200"
@@ -457,238 +466,188 @@ export default function Tiptap({ initialContent = "", onChange }: TiptapProps) {
             </div>
 
             {/* 撤销重做 */}
-            <div className="flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
+            <div className="flex items-center space-x-0.5 md:space-x-1 border-r border-gray-200 dark:border-gray-800 pr-1 md:pr-3">
               <button
                 onClick={undo}
-                className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="撤销 (Ctrl+Z)"
                 disabled={!editor.can().undo()}
               >
-                <Undo className="w-5 h-5" />
+                <Undo className="w-4 h-4 md:w-5 md:h-5" />
               </button>
               <button
                 onClick={redo}
-                className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="重做 (Ctrl+Y)"
                 disabled={!editor.can().redo()}
               >
-                <Redo className="w-5 h-5" />
+                <Redo className="w-4 h-4 md:w-5 md:h-5" />
               </button>
             </div>
 
-            {/* 清除格式 */}
+            {/* 清除格式 - 移动端隐藏 */}
             <button
               onClick={clearFormat}
-              className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200"
+              className="hidden md:block p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200"
               title="清除格式"
             >
               <Highlighter className="w-5 h-5" />
             </button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="md:hidden p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300">
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={toggleStrike}>
+                  <Strikethrough className="w-4 h-4 mr-2" />
+                  删除线
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={toggleHeading3}>
+                  <span className="font-bold mr-2">H3</span>
+                  三级标题
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={toggleCodeBlock}>
+                  <Code className="w-4 h-4 mr-2" />
+                  代码块
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={insertImage}>
+                  <ImageIcon className="w-4 h-4 mr-2" />
+                  插入图片
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={setHorizontalRule}>
+                  <Minus className="w-4 h-4 mr-2" />
+                  分隔线
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={clearFormat}>
+                  <Highlighter className="w-4 h-4 mr-2" />
+                  清除格式
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
-          {/* 操作按钮栏 */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* 操作按钮栏 - 移动端响应式布局 */}
+          <div className="flex flex-wrap items-center justify-between gap-2 md:gap-3">
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-500 dark:text-gray-400">
+              <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
                 字数: {wordCount} | 字符: {charCount}
               </span>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 md:space-x-2">
               <button
                 onClick={saveToLocalStorage}
-                className="px-3 py-1 text-sm bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors duration-200 border border-blue-200 dark:border-blue-800"
+                className="px-2 md:px-3 py-1 text-xs md:text-sm bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors duration-200 border border-blue-200 dark:border-blue-800"
               >
                 保存
               </button>
               <button
                 onClick={loadFromLocalStorage}
-                className="px-3 py-1 text-sm bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800/50 transition-colors duration-200 border border-green-200 dark:border-green-800"
+                className="hidden sm:block px-2 md:px-3 py-1 text-xs md:text-sm bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800/50 transition-colors duration-200 border border-green-200 dark:border-green-800"
               >
                 加载
               </button>
               <button
                 onClick={copyToClipboard}
-                className="px-3 py-1 text-sm bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded hover:bg-purple-200 dark:hover:bg-purple-800/50 transition-colors duration-200 border border-purple-200 dark:border-purple-800"
+                className="hidden sm:block px-2 md:px-3 py-1 text-xs md:text-sm bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded hover:bg-purple-200 dark:hover:bg-purple-800/50 transition-colors duration-200 border border-purple-200 dark:border-purple-800"
               >
                 复制
               </button>
               <button
                 onClick={exportToMarkdown}
-                className="px-3 py-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded hover:bg-indigo-200 dark:hover:bg-indigo-800/50 transition-colors duration-200 border border-indigo-200 dark:border-indigo-800"
+                className="hidden md:block px-3 py-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded hover:bg-indigo-200 dark:hover:bg-indigo-800/50 transition-colors duration-200 border border-indigo-200 dark:border-indigo-800"
               >
-                导出Markdown
-              </button>
-              <button
-                onClick={resetEditor}
-                className="px-3 py-1 text-sm bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-800/50 transition-colors duration-200 border border-red-200 dark:border-red-800"
-              >
-                清空
+                导出 Markdown
               </button>
               <button
                 onClick={() => setIsPreview(!isPreview)}
-                className={`px-3 py-1 text-sm rounded transition-colors duration-200 border ${
-                  isPreview
-                    ? "bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-700"
-                    : "bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 border-gray-200 dark:border-gray-800"
-                }`}
+                className="px-2 md:px-3 py-1 text-xs md:text-sm bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200 border border-gray-200 dark:border-gray-700"
               >
-                {isPreview ? "编辑模式" : "预览模式"}
+                {isPreview ? "编辑" : "预览"}
               </button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="sm:hidden px-2 py-1 h-auto bg-transparent"
+                  >
+                    <MoreHorizontal className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={loadFromLocalStorage}>
+                    加载
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={copyToClipboard}>
+                    复制
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={exportToMarkdown}>
+                    导出 Markdown
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={resetEditor}
+                    className="text-red-600"
+                  >
+                    清空编辑器
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 编辑器和预览区域 */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      {/* 编辑器区域 - 移动端padding调整 */}
+      <div className="tiptap-editor overflow-y-auto hide-scrollbar px-2 md:px-4">
         {isPreview ? (
-          // 预览模式
-          <div className="bg-white dark:bg-black rounded-lg border border-gray-200 dark:border-gray-800 p-6 h-[600px] transition-colors duration-200 overflow-y-auto">
-            <div className="tiptap-editor prose prose-lg dark:prose-invert max-w-none prose-headings:text-gray-900 dark:prose-headings:text-gray-100 prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-strong:text-gray-900 dark:prose-strong:text-gray-100 prose-em:text-gray-700 dark:prose-em:text-gray-300 prose-code:text-green-600 dark:prose-code:text-green-400 prose-blockquote:text-gray-600 dark:prose-blockquote:text-gray-400 prose-ul:text-gray-700 dark:prose-ul:text-gray-300 prose-ol:text-gray-700 dark:prose-ol:text-gray-300 prose-li:text-gray-700 dark:prose-li:text-gray-300">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {content
-                  .replace(/<h1>(.*?)<\/h1>/g, "# $1\n\n")
-                  .replace(/<h2>(.*?)<\/h2>/g, "## $1\n\n")
-                  .replace(/<h3>(.*?)<\/h3>/g, "### $1\n\n")
-                  .replace(/<h4>(.*?)<\/h4>/g, "#### $1\n\n")
-                  .replace(/<h5>(.*?)<\/h5>/g, "##### $1\n\n")
-                  .replace(/<h6>(.*?)<\/h6>/g, "###### $1\n\n")
-                  .replace(/<p>(.*?)<\/p>/g, "$1\n\n")
-                  .replace(/<strong>(.*?)<\/strong>/g, "**$1**")
-                  .replace(/<em>(.*?)<\/em>/g, "*$1*")
-                  .replace(/<code>(.*?)<\/code>/g, "`$1`")
-                  .replace(/<blockquote>(.*?)<\/blockquote>/g, "> $1")
-                  .replace(/<ul>(.*?)<\/ul>/g, "$1")
-                  .replace(/<li>(.*?)<\/li>/g, "- $1\n")
-                  .replace(/<ol>(.*?)<\/ol>/g, "$1")
-                  .replace(/<li>(.*?)<\/li>/g, "1. $1\n")
-                  .replace(/<a href="(.*?)">(.*?)<\/a>/g, "[$2]($1)")
-                  .replace(/<img src="(.*?)".*?>/g, "![图片]($1)")
-                  .replace(/<hr>/g, "\n---\n")
-                  .replace(/<br>/g, "\n")
-                  .replace(/<[^>]*>/g, "")}
-              </ReactMarkdown>
-            </div>
+          <div className="prose dark:prose-invert max-w-none p-4 md:p-6">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {content
+                .replace(/<[^>]*>/g, "")
+                .replace(/&nbsp;/g, " ")
+                .replace(/&lt;/g, "<")
+                .replace(/&gt;/g, ">")
+                .replace(/&amp;/g, "&")}
+            </ReactMarkdown>
           </div>
         ) : (
-          // 编辑模式
-          <div className="bg-white dark:bg-black rounded-lg border border-gray-200 dark:border-gray-300 overflow-hidden transition-colors duration-200 overflow-y-auto h-[650px]">
-            <EditorContent editor={editor} className="tiptap-editor" />
-          </div>
+          <EditorContent editor={editor} />
         )}
-
-        {/* 状态提示 */}
-        <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-          <p>
-            提示：使用快捷键快速操作（Ctrl+B: 粗体, Ctrl+I: 斜体, Shift+1/2/3:
-            标题, Ctrl+Z: 撤销, Ctrl+S: 保存）
-          </p>
-        </div>
       </div>
 
-      {/* 插入链接模态框 */}
-      {showLinkModal && (
-        <div className="fixed inset-0 bg-black/70 dark:bg-black/90 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-900 rounded-lg p-6 max-w-md w-full border border-gray-200 dark:border-gray-800 shadow-xl">
-            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
-              插入链接
-            </h3>
-            <input
-              type="text"
-              value={linkUrl}
-              onChange={(e) => setLinkUrl(e.target.value)}
-              placeholder="输入链接地址 (例如: https://example.com)"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded mb-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all duration-200"
-            />
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowLinkModal(false)}
-                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-200"
-              >
-                取消
-              </button>
-              <button
-                onClick={insertLink}
-                className="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors duration-200"
-              >
-                插入
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 字体设置模态框 */}
+      {/* 字体设置弹窗 */}
       {showFontModal && (
-        <div className="fixed inset-0 bg-black/70 dark:bg-black/90 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-900 rounded-lg p-6 max-w-md w-full border border-gray-200 dark:border-gray-800 shadow-xl">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white dark:bg-gray-900 p-4 md:p-6 rounded-lg shadow-xl w-full max-w-md">
             <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
               设置字体
             </h3>
-            <div className="mb-4">
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                <button
-                  onClick={() => {
-                    editor?.chain().focus().setFontFamily("Arial").run();
-                    setShowFontModal(false);
-                  }}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-left text-gray-900 dark:text-gray-100 transition-colors duration-200"
-                >
-                  Arial
-                </button>
-                <button
-                  onClick={() => {
-                    editor
-                      ?.chain()
-                      .focus()
-                      .setFontFamily("Times New Roman")
-                      .run();
-                    setShowFontModal(false);
-                  }}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-left text-gray-900 dark:text-gray-100 transition-colors duration-200"
-                >
-                  Times New Roman
-                </button>
-                <button
-                  onClick={() => {
-                    editor?.chain().focus().setFontFamily("Courier New").run();
-                    setShowFontModal(false);
-                  }}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-left text-gray-900 dark:text-gray-100 transition-colors duration-200"
-                >
-                  Courier New
-                </button>
-                <button
-                  onClick={() => {
-                    editor?.chain().focus().setFontFamily("Georgia").run();
-                    setShowFontModal(false);
-                  }}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-left text-gray-900 dark:text-gray-100 transition-colors duration-200"
-                >
-                  Georgia
-                </button>
-              </div>
-              <input
-                type="text"
-                value={fontFamily}
-                onChange={(e) => setFontFamily(e.target.value)}
-                placeholder="输入字体名称 (例如: 宋体, 微软雅黑)"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all duration-200"
-              />
-            </div>
-            <div className="flex justify-end space-x-3">
+            <input
+              type="text"
+              value={fontFamily}
+              onChange={(e) => setFontFamily(e.target.value)}
+              placeholder="输入字体名称 (如: Arial, 微软雅黑)"
+              className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            />
+            <div className="flex justify-end gap-2 mt-4">
               <button
                 onClick={() => setShowFontModal(false)}
-                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-200"
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               >
                 取消
               </button>
               <button
                 onClick={setFont}
-                className="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors duration-200"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
-                设置
+                确定
               </button>
             </div>
           </div>

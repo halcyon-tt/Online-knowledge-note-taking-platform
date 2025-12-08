@@ -35,6 +35,7 @@ import { SidebarNotesList } from "@/components/sidebar-notes-list";
 import { AISearchDialog } from "@/components/ai-search-dialog";
 import type { Note, Tag as TagType } from "@/types/note";
 import { useSidebar } from "@/components/ui/sidebar";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -51,7 +52,8 @@ export function AppSidebar() {
   const [loginStatus, setLoginStatus] = useState("登录/注册");
 
   // 侧边栏打开状态
-  const { state } = useSidebar(); // expanded | collapsed
+  const { state, setOpenMobile } = useSidebar();
+  const isMobile = useIsMobile();
 
   // 检查登录状态
   useEffect(() => {
@@ -213,6 +215,9 @@ export function AppSidebar() {
         alert("创建笔记时发生未知错误");
       }
     }
+    if (isMobile) {
+      setOpenMobile(false);
+    }
   };
 
   const handleCreateTag = async (tagName: string) => {
@@ -351,6 +356,15 @@ export function AppSidebar() {
     } else {
       router.push("/login");
     }
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
+  const handleNavClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
   };
 
   return (
@@ -369,7 +383,7 @@ export function AppSidebar() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive={pathname === "/dashboard"}>
-                  <Link href="/dashboard">
+                  <Link href="/dashboard" onClick={handleNavClick}>
                     <Home className="h-4 w-4" />
                     <span>首页</span>
                   </Link>
@@ -380,7 +394,7 @@ export function AppSidebar() {
                   asChild
                   isActive={pathname === "/dashboard/ai-chat"}
                 >
-                  <Link href="/dashboard/ai-chat">
+                  <Link href="/dashboard/ai-chat" onClick={handleNavClick}>
                     <Sparkles className="h-4 w-4" />
                     <span>AI 智能对话</span>
                   </Link>

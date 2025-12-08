@@ -1,12 +1,20 @@
 "use client";
 
+import type React from "react";
+
 import { useEffect, useState } from "react";
 import { FileStack, FileText, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { getUserId } from "@/lib/auth-utils";
-import { createLocalFolder, createLocalNote, getLocalFolders, getLocalNotes, updateLocalFolder } from "@/lib/local-storage";
+import {
+  createLocalFolder,
+  createLocalNote,
+  getLocalFolders,
+  getLocalNotes,
+  updateLocalFolder,
+} from "@/lib/local-storage";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Folder, Note } from "@/types/note";
@@ -17,7 +25,9 @@ export default function DashboardPage() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
-  const [draggingOverFolderId, setDraggingOverFolderId] = useState<string | null>(null);
+  const [draggingOverFolderId, setDraggingOverFolderId] = useState<
+    string | null
+  >(null);
   const useLocalStorage = !isSupabaseConfigured();
 
   // 加载数据
@@ -31,15 +41,19 @@ export default function DashboardPage() {
 
         // 获取所有文件夹中的笔记ID
         const noteIdsInFolders = new Set<string>();
-        localFolders.forEach(folder => {
+        localFolders.forEach((folder) => {
           if (folder.notes_id) {
-            const ids = folder.notes_id.split(',').filter(id => id.trim() !== '');
-            ids.forEach(id => noteIdsInFolders.add(id));
+            const ids = folder.notes_id
+              .split(",")
+              .filter((id) => id.trim() !== "");
+            ids.forEach((id) => noteIdsInFolders.add(id));
           }
         });
 
         // 过滤掉已经在文件夹中的笔记
-        const filteredNotes = localNotes.filter(note => !noteIdsInFolders.has(note.id));
+        const filteredNotes = localNotes.filter(
+          (note) => !noteIdsInFolders.has(note.id)
+        );
 
         setNotes(filteredNotes.slice(0, 6));
         setFolders(localFolders.slice(0, 6));
@@ -61,7 +75,7 @@ export default function DashboardPage() {
                 .select("*")
                 .eq("user_id", userId)
                 .order("updated_at", { ascending: false })
-                .limit(6)
+                .limit(6),
             ]);
 
             const allNotes = (notesResult.data as Note[]) || [];
@@ -69,15 +83,19 @@ export default function DashboardPage() {
 
             // 获取所有文件夹中的笔记ID
             const noteIdsInFolders = new Set<string>();
-            allFolders.forEach(folder => {
+            allFolders.forEach((folder) => {
               if (folder.notes_id) {
-                const ids = folder.notes_id.split(',').filter(id => id.trim() !== '');
-                ids.forEach(id => noteIdsInFolders.add(id));
+                const ids = folder.notes_id
+                  .split(",")
+                  .filter((id) => id.trim() !== "");
+                ids.forEach((id) => noteIdsInFolders.add(id));
               }
             });
 
             // 过滤掉已经在文件夹中的笔记
-            const filteredNotes = allNotes.filter(note => !noteIdsInFolders.has(note.id));
+            const filteredNotes = allNotes.filter(
+              (note) => !noteIdsInFolders.has(note.id)
+            );
 
             setNotes(filteredNotes.slice(0, 6));
             setFolders(allFolders);
@@ -175,34 +193,34 @@ export default function DashboardPage() {
     if (!noteId) return;
 
     // 找到目标文件夹
-    const targetFolder = folders.find(f => f.id === folderId);
+    const targetFolder = folders.find((f) => f.id === folderId);
     if (!targetFolder) return;
 
     // 找到被拖拽的笔记
-    const draggedNote = notes.find(n => n.id === noteId);
+    const draggedNote = notes.find((n) => n.id === noteId);
     if (!draggedNote) return;
 
     if (useLocalStorage) {
       // 本地存储模式
       const currentNoteIds = targetFolder.notes_id
-        ? targetFolder.notes_id.split(',').filter(id => id.trim() !== '')
+        ? targetFolder.notes_id.split(",").filter((id) => id.trim() !== "")
         : [];
 
       // 检查是否已经存在
       if (!currentNoteIds.includes(noteId)) {
-        const newNoteIds = [...currentNoteIds, noteId].join(',');
+        const newNoteIds = [...currentNoteIds, noteId].join(",");
         const updatedFolder = { ...targetFolder, notes_id: newNoteIds };
 
         // 更新本地存储
         updateLocalFolder(updatedFolder);
 
         // 更新状态
-        setFolders(prev =>
-          prev.map(f => f.id === folderId ? updatedFolder : f)
+        setFolders((prev) =>
+          prev.map((f) => (f.id === folderId ? updatedFolder : f))
         );
 
         // 从笔记列表中移除
-        setNotes(prev => prev.filter(n => n.id !== noteId));
+        setNotes((prev) => prev.filter((n) => n.id !== noteId));
       }
     } else {
       // Supabase 模式
@@ -216,19 +234,19 @@ export default function DashboardPage() {
       }
 
       const currentNoteIds = targetFolder.notes_id
-        ? targetFolder.notes_id.split(',').filter(id => id.trim() !== '')
+        ? targetFolder.notes_id.split(",").filter((id) => id.trim() !== "")
         : [];
 
       // 检查是否已经存在
       if (!currentNoteIds.includes(noteId)) {
-        const newNoteIds = [...currentNoteIds, noteId].join(',');
+        const newNoteIds = [...currentNoteIds, noteId].join(",");
 
         // 更新数据库
         const { data, error } = await supabase
           .from("folders")
           .update({
             notes_id: newNoteIds,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           })
           .eq("id", folderId)
           .eq("user_id", userId)
@@ -243,12 +261,12 @@ export default function DashboardPage() {
 
         if (data) {
           // 更新文件夹状态
-          setFolders(prev =>
-            prev.map(f => f.id === folderId ? data as Folder : f)
+          setFolders((prev) =>
+            prev.map((f) => (f.id === folderId ? (data as Folder) : f))
           );
 
           // 从笔记列表中移除
-          setNotes(prev => prev.filter(n => n.id !== noteId));
+          setNotes((prev) => prev.filter((n) => n.id !== noteId));
 
           alert(`笔记已添加到文件夹 ${targetFolder.name}`);
         }
@@ -274,12 +292,14 @@ export default function DashboardPage() {
       </div>
     );
   }
-  
+
   return (
-    <div className="p-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">欢迎回来</h1>
-        <p className="text-muted-foreground mt-2">
+    <div className="p-4 md:p-6">
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+          欢迎回来
+        </h1>
+        <p className="text-muted-foreground mt-2 text-sm md:text-base">
           开始编写你的 Markdown 笔记
           {useLocalStorage && (
             <span className="text-yellow-500 ml-2">(本地存储模式)</span>
@@ -287,15 +307,15 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="border-dashed h-full">
-          <div className="flex flex-col items-center justify-evenly h-full">
+          <div className="flex flex-row sm:flex-col items-center justify-evenly h-full gap-3 p-4 sm:p-6">
             <Button
               type="button"
               variant="outline"
               size="lg"
               onClick={handleCreateNote}
-              className="w-1/3"
+              className="flex-1 sm:flex-none sm:w-2/3 bg-transparent"
             >
               <Plus className="h-5 w-5 mr-2" />
               新建笔记
@@ -306,7 +326,7 @@ export default function DashboardPage() {
               variant="outline"
               size="lg"
               onClick={handleCreateFolder}
-              className="w-1/3"
+              className="flex-1 sm:flex-none sm:w-2/3 bg-transparent"
             >
               <Plus className="h-5 w-5 mr-2" />
               新建文件夹
@@ -327,20 +347,20 @@ export default function DashboardPage() {
               <Card
                 className={`
                   hover:bg-accent transition-colors cursor-pointer h-full
-                  ${draggingOverFolderId === folder.id ? 'ring-2 ring-primary bg-primary/10' : ''}
+                  ${draggingOverFolderId === folder.id ? "ring-2 ring-primary bg-primary/10" : ""}
                 `}
               >
-                <CardHeader>
+                <CardHeader className="pb-2 md:pb-4">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <FileStack className="h-4 w-4" />
                     <span className="truncate">{folder.name}</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-xs text-muted-foreground mt-3">
+                  <p className="text-xs text-muted-foreground mt-2 md:mt-3">
                     {folder.notes_id
-                      ? `${folder.notes_id.split(',').filter(id => id.trim() !== '').length} 个笔记`
-                      : '暂无笔记'}
+                      ? `${folder.notes_id.split(",").filter((id) => id.trim() !== "").length} 个笔记`
+                      : "暂无笔记"}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {new Date(folder.updated_at).toLocaleDateString("zh-CN")}
@@ -365,12 +385,12 @@ export default function DashboardPage() {
             onDragEnd={handleDragEnd}
             className={`
               cursor-move transition-opacity
-              ${draggingNoteId === note.id ? 'opacity-50' : ''}
+              ${draggingNoteId === note.id ? "opacity-50" : ""}
             `}
           >
             <Link href={`/dashboard/notes/${note.id}`}>
               <Card className="hover:bg-accent transition-colors cursor-pointer h-full">
-                <CardHeader>
+                <CardHeader className="pb-2 md:pb-4">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <FileText className="h-4 w-4" />
                     <span className="truncate">{note.title}</span>
@@ -382,11 +402,11 @@ export default function DashboardPage() {
                       ? note.content.replace(/<[^>]*>/g, "").slice(0, 100)
                       : "暂无内容"}
                   </p>
-                  <div className="flex items-center justify-between mt-3">
+                  <div className="flex items-center justify-between mt-2 md:mt-3">
                     <p className="text-xs text-muted-foreground">
                       {new Date(note.updated_at).toLocaleDateString("zh-CN")}
                     </p>
-                    <div className="text-xs text-muted-foreground px-2 py-1 bg-muted rounded">
+                    <div className="hidden sm:block text-xs text-muted-foreground px-2 py-1 bg-muted rounded">
                       可拖拽
                     </div>
                   </div>
@@ -397,9 +417,9 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* 拖拽提示 */}
+      {/* 拖拽提示 - 移动端隐藏 */}
       {draggingNoteId && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg">
+        <div className="hidden sm:block fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg">
           拖拽笔记到文件夹上进行添加
         </div>
       )}
