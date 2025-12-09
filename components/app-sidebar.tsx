@@ -220,6 +220,7 @@ export function AppSidebar() {
     }
   };
 
+  // 创建新标签
   const handleCreateTag = async (tagName: string) => {
     if (useLocalStorage) {
       createLocalTag(tagName);
@@ -252,6 +253,7 @@ export function AppSidebar() {
     }
   };
 
+  // 删除标签
   const handleDeleteTag = async (tagId: string) => {
     if (useLocalStorage) {
       deleteLocalTag(tagId);
@@ -279,6 +281,7 @@ export function AppSidebar() {
     }
   };
 
+  // 切换标签过滤
   const toggleTagFilter = (tagName: string) => {
     setSelectedTags((prev) =>
       prev.includes(tagName)
@@ -287,6 +290,7 @@ export function AppSidebar() {
     );
   };
 
+  // 开始编辑标题
   const handleStartEdit = (e: React.MouseEvent, note: Note) => {
     e.preventDefault();
     e.stopPropagation();
@@ -294,6 +298,7 @@ export function AppSidebar() {
     setEditingTitle(note.title || "");
   };
 
+  // 保存标题
   const handleSaveTitle = async (noteId: string) => {
     const trimmedTitle = editingTitle.trim() || "未命名笔记";
 
@@ -332,11 +337,13 @@ export function AppSidebar() {
     router.refresh();
   };
 
+  // 取消编辑
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditingTitle("");
   };
 
+  // 处理键盘事件
   const handleKeyDown = (e: React.KeyboardEvent, noteId: string) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -346,6 +353,7 @@ export function AppSidebar() {
     }
   };
 
+  // 处理登录/登出
   const handleLogin = async () => {
     if (loginStatus.startsWith("已登录")) {
       const supabase = createClient();
@@ -361,10 +369,30 @@ export function AppSidebar() {
     }
   };
 
+  // 导航时关闭移动端侧边栏
   const handleNavClick = () => {
     if (isMobile) {
       setOpenMobile(false);
     }
+  };
+
+  // 删除笔记
+  const handleDeleteNote = async (noteId: string) => {
+    if (useLocalStorage) {
+      const notes = getLocalNotes().filter((n) => n.id !== noteId);
+      setNotes(notes);
+      localStorage.setItem("notes", JSON.stringify(notes));
+    } else {
+      const supabase = createClient();
+      if (!supabase) return;
+      const { error } = await supabase.from("notes").delete().eq("id", noteId);
+      if (error) {
+        console.error("Error deleting note:", error);
+        return;
+      }
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+    }
+    router.refresh();
   };
 
   return (
@@ -444,6 +472,7 @@ export function AppSidebar() {
           onCancelEdit={handleCancelEdit}
           onTitleChange={setEditingTitle}
           onKeyDown={handleKeyDown}
+          handleDeleteNote ={handleDeleteNote}
         />
       </SidebarContent>
 

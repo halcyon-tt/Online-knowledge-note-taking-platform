@@ -26,6 +26,7 @@ interface SidebarNotesListProps {
   onCancelEdit: () => void;
   onTitleChange: (title: string) => void;
   onKeyDown: (e: React.KeyboardEvent, noteId: string) => void;
+  handleDeleteNote: (noteId: string) => void;
 }
 
 export function SidebarNotesList({
@@ -43,6 +44,7 @@ export function SidebarNotesList({
   onCancelEdit,
   onTitleChange,
   onKeyDown,
+  handleDeleteNote,
 }: SidebarNotesListProps) {
   return (
     <SidebarGroup>
@@ -74,6 +76,7 @@ export function SidebarNotesList({
                   onCancelEdit={onCancelEdit}
                   onTitleChange={onTitleChange}
                   onKeyDown={onKeyDown}
+                  handleDeleteNote={handleDeleteNote}
                 />
               ))}
               {filteredNotes.length === 0 && (

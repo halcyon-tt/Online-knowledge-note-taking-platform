@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { FileText, Pencil, Check, X } from "lucide-react";
+import { FileText, Pencil, Check, X, Trash } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ interface SidebarNoteItemProps {
   onCancelEdit: () => void;
   onTitleChange: (title: string) => void;
   onKeyDown: (e: React.KeyboardEvent, noteId: string) => void;
+  handleDeleteNote: (noteId: string) => void;
 }
 
 export function SidebarNoteItem({
@@ -32,6 +33,7 @@ export function SidebarNoteItem({
   onCancelEdit,
   onTitleChange,
   onKeyDown,
+  handleDeleteNote,
 }: SidebarNoteItemProps) {
   const isEditing = editingId === note.id;
 
@@ -102,6 +104,12 @@ export function SidebarNoteItem({
             >
               <Pencil className="h-3 w-3 text-muted-foreground" />
             </button>
+            {/* <button
+                onClick={() => handleDeleteNote(note.id)}
+              className="h-5 w-5 shrink-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-accent transition-opacity"
+            >
+              <Trash className="h-3 w-3 text-muted-foreground" />
+            </button> */}
           </Link>
         </SidebarMenuButton>
       )}

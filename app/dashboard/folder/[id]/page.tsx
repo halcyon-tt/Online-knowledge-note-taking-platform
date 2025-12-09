@@ -13,7 +13,7 @@ import {
 import { getUserId } from "@/lib/auth-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, FileText, Trash2, Edit2, MoreVertical } from "lucide-react";
+import { ArrowLeft, FileText, Trash2, Edit2, MoreVertical, LogOut, Trash } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -235,6 +235,25 @@ export default function FolderPage({ params }: PageProps) {
     );
   }
 
+  // 删除笔记
+  const handleDeleteNote = async (noteId: string) => {
+    if (useLocalStorage) {
+      const notes = getLocalNotes().filter((n) => n.id !== noteId);
+      setNotes(notes);
+      localStorage.setItem("notes", JSON.stringify(notes));
+    } else {
+      const supabase = createClient();
+      if (!supabase) return;
+      const { error } = await supabase.from("notes").delete().eq("id", noteId);
+      if (error) {
+        console.error("Error deleting note:", error);
+        return;
+      }
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+    }
+    router.refresh();
+  };
+
   return (
     <div className="p-4 md:p-6">
       {/* 头部 */}
@@ -321,6 +340,19 @@ export default function FolderPage({ params }: PageProps) {
                   </p>
                 </CardContent>
               </Link>
+              {/* 删除按钮 */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-2 right-10 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleDeleteNote(note.id);
+                }}
+              >
+                <Trash className="" />
+              </Button>
               {/* 移除按钮 */}
               <Button
                 variant="ghost"
@@ -332,7 +364,9 @@ export default function FolderPage({ params }: PageProps) {
                   handleRemoveNote(note.id);
                 }}
               >
-                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                {/* <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /> */}
+                {/* <p>移出文件夹</p> */}
+                <LogOut />
               </Button>
             </Card>
           ))}
