@@ -29,7 +29,7 @@ body {
 
 @media (min-width: 768px) {
   .tiptap-editor {
-    height: 500px;
+    height: 100%;
     padding: 15px;
   }
 }
