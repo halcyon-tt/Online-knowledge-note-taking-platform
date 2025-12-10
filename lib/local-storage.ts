@@ -6,6 +6,7 @@ const TAGS_STORAGE_KEY = "local_tags"; // 添加标签存储键
 const FOLDERS_STORAGE_KEY = "local_folders"; // 添加文件夹存储键
 
 
+
 // 获取所有笔记
 export function getLocalNotes(): Note[] {
   if (typeof window === "undefined") return [];

@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, use } from "react";
 import { Plus, Home, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -36,6 +36,7 @@ import { AISearchDialog } from "@/components/ai-search-dialog";
 import type { Note, Tag as TagType } from "@/types/note";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useCurrentFolderIdStore } from "@/lib/store/folders";
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -50,10 +51,12 @@ export function AppSidebar() {
   const [tags, setTags] = useState<TagType[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [loginStatus, setLoginStatus] = useState("登录/注册");
+  const [folderNoteIds, setFolderNoteIds] = useState<string[] | null>(null);
 
   // 侧边栏打开状态
   const { state, setOpenMobile } = useSidebar();
   const isMobile = useIsMobile();
+  const { currentFolderId, setCurrentFolderId } = useCurrentFolderIdStore();
 
   // 检查登录状态
   useEffect(() => {
@@ -76,6 +79,59 @@ export function AppSidebar() {
     }
     checkLoginStatus();
   }, [useLocalStorage]);
+
+  useEffect(() => {
+    async function fetchFolderNoteIds() {
+      const supabase = createClient();
+      if (currentFolderId.trim() !== "" && !useLocalStorage) {
+        if (!supabase) {
+          console.error("No Supabase client");
+          setFolderNoteIds(null);
+          return;
+        }
+      }
+      const userId = await getUserId();
+      if (!userId) {
+        alert("请先登录");
+        setFolderNoteIds(null);
+        router.push("/login");
+        return;
+      }
+      try {
+        console.log("Fetching note IDs for folder:", currentFolderId);
+        const { data, error } = await supabase
+          .from("folders")
+          .select("notes_id")
+          .eq("id", currentFolderId)
+          .eq("user_id", userId)
+          .single();
+
+        if (error) {
+          console.error("Error fetching folder note IDs:", error);
+          setFolderNoteIds(null);
+          return;
+        }
+
+        if (data && data.notes_id) {
+          // 确保 notes_id 存在且是有效字符串
+          const ids = data.notes_id
+            .split(",")
+            .filter((id: string) => id && id.trim() !== "")
+            .map((id: string) => id.trim());
+          setFolderNoteIds(ids);
+        } else {
+          setFolderNoteIds(null); // 设置为空数组，而不是 null
+        }
+      } catch (error) {
+        console.error("Unexpected error:", error);
+        alert("查询文件夹时发生未知错误");
+        setFolderNoteIds(null);
+      }
+    }
+    fetchFolderNoteIds();
+  }, [currentFolderId, useLocalStorage]);
+
+
 
   // 加载笔记的函数
   const loadNotes = useCallback(async () => {
@@ -142,9 +198,19 @@ export function AppSidebar() {
     }
   }, [pathname, loadNotes]);
 
-  const filteredNotes = useMemo(() => {
+  // 过滤笔记
+  const filteredNotes = useMemo(async () => {
+    let result = [...notes];
+    console.log("过滤笔记notes1", result);
+    // 修正文件夹过滤条件：检查是否存在且非空
+    if (folderNoteIds && Array.isArray(folderNoteIds) && folderNoteIds.length > 0) {
+      result = result.filter(note => folderNoteIds.includes(note.id));
+    }
+    console.log("folderNoteIds", folderNoteIds);
+    console.log("过滤笔记notes2", result);
+    // 第二步：应用搜索和标签过滤
     if (!searchQuery && selectedTags.length === 0) {
-      return notes;
+      return result;
     }
 
     if (useLocalStorage) {
@@ -152,7 +218,7 @@ export function AppSidebar() {
     }
 
     const lowerQuery = searchQuery.toLowerCase();
-    return notes.filter((note) => {
+    return result.filter(note => {
       const matchesQuery =
         !searchQuery ||
         note.title.toLowerCase().includes(lowerQuery) ||
@@ -160,11 +226,73 @@ export function AppSidebar() {
 
       const matchesTags =
         selectedTags.length === 0 ||
-        selectedTags.some((tag) => note.tags?.includes(tag));
+        selectedTags.some(tag => note.tags?.includes(tag));
 
       return matchesQuery && matchesTags;
     });
-  }, [notes, searchQuery, selectedTags, useLocalStorage]);
+  }, [notes, folderNoteIds, searchQuery, selectedTags, useLocalStorage]);
+
+  //   if (currentFolderId.trim() !== "") {
+  //     const supabase = createClient();
+  //     if (!supabase) {
+  //       console.error("No Supabase client");
+  //       return;
+  //     }
+
+  //     const userId = await getUserId();
+  //     if (!userId) {
+  //       alert("请先登录");
+  //       router.push("/login");
+  //       return;
+  //     }
+
+  //     try {
+  //       const { data, error } = await supabase
+  //         .from("folders")
+  //         .select()
+  //         .eq("id", currentFolderId)
+  //         .single();
+
+  //       const notes_id = data.notes_id.split(",") as string[];
+  //       console.log("notes_id:", notes.filter((note) => notes_id.includes(note.id)));
+
+  //       if (error) {
+  //         console.error("Error creating note:", error);
+  //         return;
+  //       }
+
+  //       return notes.filter((note) => notes_id.includes(note.id));
+
+
+  //     } catch (error) {
+  //       console.error("Unexpected error:", error);
+  //       alert("查询文件夹时发生未知错误");
+  //     }
+
+  //   }
+
+  //   if (!searchQuery && selectedTags.length === 0) {
+  //     return notes;
+  //   }
+
+  //   if (useLocalStorage) {
+  //     return searchLocalNotes(searchQuery, selectedTags);
+  //   }
+
+  //   const lowerQuery = searchQuery.toLowerCase();
+  //   return notes.filter((note) => {
+  //     const matchesQuery =
+  //       !searchQuery ||
+  //       note.title.toLowerCase().includes(lowerQuery) ||
+  //       note.content.toLowerCase().includes(lowerQuery);
+
+  //     const matchesTags =
+  //       selectedTags.length === 0 ||
+  //       selectedTags.some((tag) => note.tags?.includes(tag));
+
+  //     return matchesQuery && matchesTags;
+  //   });
+  // }, [notes, searchQuery, selectedTags, useLocalStorage]);
 
   // 创建新笔记
   const handleCreateNote = async () => {
@@ -323,10 +451,10 @@ export function AppSidebar() {
         prev.map((n) =>
           n.id === noteId
             ? {
-                ...n,
-                title: trimmedTitle,
-                updated_at: new Date().toISOString(),
-              }
+              ...n,
+              title: trimmedTitle,
+              updated_at: new Date().toISOString(),
+            }
             : n
         )
       );
@@ -472,7 +600,7 @@ export function AppSidebar() {
           onCancelEdit={handleCancelEdit}
           onTitleChange={setEditingTitle}
           onKeyDown={handleKeyDown}
-          handleDeleteNote ={handleDeleteNote}
+          handleDeleteNote={handleDeleteNote}
         />
       </SidebarContent>
 

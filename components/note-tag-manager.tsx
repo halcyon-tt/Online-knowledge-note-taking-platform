@@ -30,6 +30,9 @@ interface NoteTagManagerProps {
   noteId: string;
   noteTags: string[];
   onTagsChange: (tags: string[]) => void;
+  saving: boolean;
+  setSaving: (saving: boolean) => void;
+  updateNote: (content: string) => Promise<void>;
 }
 
 const PAGE_SIZE = 5;
@@ -38,11 +41,13 @@ export function NoteTagManager({
   noteId,
   noteTags,
   onTagsChange,
+  saving,
+  setSaving,
+  updateNote
 }: NoteTagManagerProps) {
   const [tags, setTags] = useState<Tag[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const useLocalStorage = !isSupabaseConfigured();
 
@@ -89,11 +94,11 @@ export function NoteTagManager({
           .eq("user_id", userId);
 
         if (noteTagsData && noteTagsData.length > 0) {
-          const tagIds = noteTagsData.map((nt) => nt.tag_id);
+          const tagIds = noteTagsData.map((nt: { tag_id: any; }) => nt.tag_id);
           const tagNames: string[] = [];
 
           for (const tagId of tagIds) {
-            const tag = tagsData?.find((t) => t.id === tagId);
+            const tag = tagsData?.find((t: { id: any; }) => t.id === tagId);
             if (tag) {
               tagNames.push(tag.name);
             }
@@ -343,11 +348,12 @@ export function NoteTagManager({
         size="sm"
         className="h-6 px-2 text-xs ml-2 bg-transparent"
         disabled={saving}
-        onClick={() => {
-          // 手动触发保存确认
-          setSaving(true);
-          setTimeout(() => setSaving(false), 500);
-        }}
+        // onClick={async () => {
+        //   // 手动触发保存确认
+        //   setSaving(true);
+        //   await updateNote("");
+        //   setTimeout(() => setSaving(false), 500);
+        // }}
       >
         {saving ? (
           <>

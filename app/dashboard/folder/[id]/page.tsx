@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { Folder, Note } from "@/types/note";
+import { useCurrentFolderIdStore } from "@/lib/store/folders";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -33,6 +34,7 @@ export default function FolderPage({ params }: PageProps) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const useLocalStorage = !isSupabaseConfigured();
+  const { setCurrentFolderId } = useCurrentFolderIdStore();
 
   useEffect(() => {
     async function loadFolder() {
@@ -108,6 +110,11 @@ export default function FolderPage({ params }: PageProps) {
 
     loadFolder();
   }, [id, useLocalStorage, router]);
+
+  useEffect(() => {
+    // console.log("Folder data:", id);
+    setCurrentFolderId(id);
+  }, []);
 
   // 重命名文件夹
   const handleRename = async () => {

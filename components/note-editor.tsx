@@ -35,13 +35,17 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { getLocalNotes } from "@/lib/local-storage";
+import { redirect, useRouter } from "next/navigation";
 
 interface TiptapProps {
   initialContent?: string;
   onChange?: (content: string) => void;
+  noteId?: string;
 }
 
-export default function Tiptap({ initialContent = "", onChange }: TiptapProps) {
+export default function Tiptap({ initialContent = "开始写作....", onChange, noteId }: TiptapProps) {
   const [content, setContent] = useState(initialContent);
   const [isPreview, setIsPreview] = useState(false);
   const [wordCount, setWordCount] = useState(0);
@@ -52,7 +56,9 @@ export default function Tiptap({ initialContent = "", onChange }: TiptapProps) {
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [showFontModal, setShowFontModal] = useState(false);
   const [fontFamily, setFontFamily] = useState("");
+  const useLocalStorage = !isSupabaseConfigured();
 
+  const router = useRouter();
   // 初始化编辑器
   const editor = useEditor({
     immediatelyRender: false,
@@ -77,9 +83,9 @@ export default function Tiptap({ initialContent = "", onChange }: TiptapProps) {
             "text-blue-400 hover:text-blue-300 underline transition-colors duration-200",
         },
       }),
-      Placeholder.configure({
-        placeholder: "开始写作...",
-      }),
+      // Placeholder.configure({
+      //   // placeholder: (charCount > 0) ? "" : "开始写作...",
+      // }),
       FontFamily.configure({
         types: ["textStyle"],
       }),
@@ -257,7 +263,18 @@ export default function Tiptap({ initialContent = "", onChange }: TiptapProps) {
       setContent("");
     }
   };
+  useEffect(() => {
+    if (!editor) return;
 
+    // 重新配置编辑器（如果需要完全重新设置）
+    // editor.setOptions({
+    //   editorProps: {
+    //     attributes: {
+    //       placeholder: charCount > 0 ? "" : "开始写作...",
+    //     },
+    //   },
+    // });
+  }, [editor, charCount]);
   // 编辑器快捷键
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -324,7 +341,23 @@ export default function Tiptap({ initialContent = "", onChange }: TiptapProps) {
       </div>
     );
   }
-
+  // 删除笔记
+  const handleDeleteNote = async (noteId: string | undefined) => {
+    if (!noteId) return;
+    if (useLocalStorage) {
+      const notes = getLocalNotes().filter((n) => n.id !== noteId);
+      localStorage.setItem("notes", JSON.stringify(notes));
+    } else {
+      const supabase = createClient();
+      if (!supabase) return;
+      const { error } = await supabase.from("notes").delete().eq("id", noteId);
+      if (error) {
+        console.error("Error deleting note:", error);
+        return;
+      }
+    }
+    redirect("/dashboard");
+  };
   return (
     <div className="bg-gray-50 dark:bg-black overflow-hidden">
       {/* 顶部工具栏 - 移动端响应式适配 */}
@@ -534,23 +567,37 @@ export default function Tiptap({ initialContent = "", onChange }: TiptapProps) {
           <div className="flex flex-wrap items-center justify-between gap-2 md:gap-3">
             <div className="flex items-center space-x-2">
               <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                字数: {wordCount} | 字符: {charCount}
+                {/* 字数: {wordCount} |  */}
+                字符: {charCount}
               </span>
             </div>
 
             <div className="flex items-center space-x-1 md:space-x-2">
+              {/* <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-2 right-10 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleDeleteNote(note.id);
+                }}
+              >
+                <Trash className="" />
+              </Button> */}
+
               <button
-                onClick={saveToLocalStorage}
+                onClick={() => onChange && onChange(content)}
                 className="px-2 md:px-3 py-1 text-xs md:text-sm bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors duration-200 border border-blue-200 dark:border-blue-800"
               >
                 保存
               </button>
-              <button
+              {/* <button
                 onClick={loadFromLocalStorage}
                 className="hidden sm:block px-2 md:px-3 py-1 text-xs md:text-sm bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800/50 transition-colors duration-200 border border-green-200 dark:border-green-800"
               >
                 加载
-              </button>
+              </button> */}
               <button
                 onClick={copyToClipboard}
                 className="hidden sm:block px-2 md:px-3 py-1 text-xs md:text-sm bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded hover:bg-purple-200 dark:hover:bg-purple-800/50 transition-colors duration-200 border border-purple-200 dark:border-purple-800"
@@ -563,13 +610,18 @@ export default function Tiptap({ initialContent = "", onChange }: TiptapProps) {
               >
                 导出 Markdown
               </button>
-              <button
+              {/* <button
                 onClick={() => setIsPreview(!isPreview)}
                 className="px-2 md:px-3 py-1 text-xs md:text-sm bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200 border border-gray-200 dark:border-gray-700"
               >
                 {isPreview ? "编辑" : "预览"}
+              </button> */}
+              <button
+                onClick={() => { handleDeleteNote(noteId) }}
+                className="px-2 md:px-3 py-1 text-xs md:text-sm bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-white-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors duration-200 border border-blue-200 dark:border-blue-800"
+              >
+                删除笔记
               </button>
-
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
