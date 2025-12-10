@@ -484,6 +484,7 @@ export function AppSidebar() {
       const supabase = createClient();
       if (supabase) {
         await supabase.auth.signOut();
+        await supabase.auth.signOutWithOAuth()
         setLoginStatus("登录/注册");
       }
     } else {

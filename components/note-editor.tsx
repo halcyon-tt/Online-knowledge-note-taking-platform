@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
@@ -26,6 +26,7 @@ import {
   Type,
   Minus,
   MoreHorizontal,
+  X,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -45,13 +46,204 @@ interface TiptapProps {
   noteId?: string;
 }
 
-export default function Tiptap({ initialContent = "开始写作....", onChange, noteId }: TiptapProps) {
+// 图片插入对话框组件
+function ImageInsertDialog({ editor, onClose }: {
+  editor: any;
+  onClose: () => void;
+}) {
+  const [url, setUrl] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // 处理URL插入
+  const handleInsertByUrl = useCallback(() => {
+    if (url.trim()) {
+      editor?.chain().focus().setImage({ src: url.trim() }).run();
+      setUrl("");
+      onClose();
+    }
+  }, [editor, url, onClose]);
+
+  // 处理文件选择
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      // 验证文件类型
+      if (!file.type.startsWith("image/")) {
+        alert("请选择图片文件 (JPG, PNG, GIF等)");
+        return;
+      }
+
+      // 验证文件大小（限制5MB）
+      if (file.size > 5 * 1024 * 1024) {
+        alert("图片大小不能超过5MB");
+        return;
+      }
+
+      // 创建本地预览
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        setPreviewUrl(base64);
+      };
+      reader.readAsDataURL(file);
+    },
+    []
+  );
+
+  // 插入预览的图片
+  const insertPreviewImage = useCallback(() => {
+    if (previewUrl) {
+      editor?.chain().focus().setImage({ src: previewUrl }).run();
+      onClose();
+    }
+  }, [editor, previewUrl, onClose]);
+
+  // 手动触发文件选择
+  const handleSelectFile = () => {
+    fileInputRef.current?.click();
+  };
+
+  // 清除预览
+  const clearPreview = () => {
+    setPreviewUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+      <div className="bg-white dark:bg-gray-900 p-4 md:p-6 rounded-lg shadow-xl w-full max-w-md">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            插入图片
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {/* URL输入部分 */}
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+              通过URL插入
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://example.com/image.jpg"
+                className="flex-1 p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleInsertByUrl();
+                  }
+                }}
+              />
+              <Button
+                onClick={handleInsertByUrl}
+                disabled={!url.trim()}
+                size="sm"
+              >
+                插入
+              </Button>
+            </div>
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400">
+                或
+              </span>
+            </div>
+          </div>
+
+          {/* 文件上传部分 */}
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+              从本地上传
+            </label>
+            <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-4 text-center">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+
+              {previewUrl ? (
+                <div className="relative mb-4">
+                  <img
+                    src={previewUrl}
+                    alt="预览"
+                    className="max-h-48 mx-auto rounded-lg"
+                  />
+                  <button
+                    type="button"
+                    onClick={clearPreview}
+                    className="absolute top-2 right-2 p-1 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <ImageIcon className="h-12 w-12 mx-auto text-gray-400 mb-2" />
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    支持 JPG, PNG, GIF 格式，最大 5MB
+                  </p>
+                </>
+              )}
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSelectFile}
+                className="w-full"
+              >
+                {previewUrl ? "重新选择" : "选择图片文件"}
+              </Button>
+
+              {previewUrl && (
+                <Button
+                  onClick={insertPreviewImage}
+                  className="w-full mt-2"
+                >
+                  插入图片
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end mt-4">
+          <Button variant="outline" onClick={onClose}>
+            取消
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function Tiptap({ initialContent = "", onChange, noteId }: TiptapProps) {
   const [content, setContent] = useState(initialContent);
   const [isPreview, setIsPreview] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
-  const [imageUrl, setImageUrl] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [showFontModal, setShowFontModal] = useState(false);
@@ -59,6 +251,7 @@ export default function Tiptap({ initialContent = "开始写作....", onChange, 
   const useLocalStorage = !isSupabaseConfigured();
 
   const router = useRouter();
+
   // 初始化编辑器
   const editor = useEditor({
     immediatelyRender: false,
@@ -83,9 +276,6 @@ export default function Tiptap({ initialContent = "开始写作....", onChange, 
             "text-blue-400 hover:text-blue-300 underline transition-colors duration-200",
         },
       }),
-      // Placeholder.configure({
-      //   // placeholder: (charCount > 0) ? "" : "开始写作...",
-      // }),
       FontFamily.configure({
         types: ["textStyle"],
       }),
@@ -151,13 +341,10 @@ export default function Tiptap({ initialContent = "开始写作....", onChange, 
   const setHorizontalRule = () =>
     editor?.chain().focus().setHorizontalRule().run();
 
-  // 插入图片
+  // 修改后的插入图片函数
   const insertImage = useCallback(() => {
-    const url = window.prompt("请输入图片 URL");
-    if (url) {
-      editor?.chain().focus().setImage({ src: url }).run();
-    }
-  }, [editor]);
+    setShowImageModal(true);
+  }, []);
 
   // 插入链接
   const insertLink = useCallback(() => {
@@ -263,18 +450,11 @@ export default function Tiptap({ initialContent = "开始写作....", onChange, 
       setContent("");
     }
   };
+
   useEffect(() => {
     if (!editor) return;
-
-    // 重新配置编辑器（如果需要完全重新设置）
-    // editor.setOptions({
-    //   editorProps: {
-    //     attributes: {
-    //       placeholder: charCount > 0 ? "" : "开始写作...",
-    //     },
-    //   },
-    // });
   }, [editor, charCount]);
+
   // 编辑器快捷键
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -341,6 +521,7 @@ export default function Tiptap({ initialContent = "开始写作....", onChange, 
       </div>
     );
   }
+
   // 删除笔记
   const handleDeleteNote = async (noteId: string | undefined) => {
     if (!noteId) return;
@@ -358,12 +539,13 @@ export default function Tiptap({ initialContent = "开始写作....", onChange, 
     }
     redirect("/dashboard");
   };
+
   return (
     <div className="bg-gray-50 dark:bg-black overflow-hidden">
-      {/* 顶部工具栏 - 移动端响应式适配 */}
+      {/* 顶部工具栏 */}
       <div className="sticky top-0 z-10 bg-white dark:bg-black border-b border-gray-200 dark:border-gray-300 shadow-sm ">
         <div className="max-w-7xl mx-auto px-2 md:px-4 py-2 md:py-3">
-          {/* 主工具栏 - 移动端使用更紧凑布局 */}
+          {/* 主工具栏 */}
           <div className="flex flex-wrap items-center gap-1 md:gap-2 mb-2 md:mb-3">
             {/* 文本样式 */}
             <div className="flex items-center space-x-0.5 md:space-x-1 border-r border-gray-200 dark:border-gray-800 pr-1 md:pr-3">
@@ -469,7 +651,7 @@ export default function Tiptap({ initialContent = "开始写作....", onChange, 
               </button>
             </div>
 
-            {/* 链接和图片 - 移动端隐藏图片 */}
+            {/* 链接和图片 */}
             <div className="flex items-center space-x-0.5 md:space-x-1 border-r border-gray-200 dark:border-gray-800 pr-1 md:pr-3">
               <button
                 onClick={insertLink}
@@ -480,7 +662,7 @@ export default function Tiptap({ initialContent = "开始写作....", onChange, 
               </button>
               <button
                 onClick={insertImage}
-                className="hidden sm:block p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200"
+                className={`p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("image") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="插入图片"
               >
                 <ImageIcon className="w-4 h-4 md:w-5 md:h-5" />
@@ -546,15 +728,6 @@ export default function Tiptap({ initialContent = "开始写作....", onChange, 
                   <Code className="w-4 h-4 mr-2" />
                   代码块
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={insertImage}>
-                  <ImageIcon className="w-4 h-4 mr-2" />
-                  插入图片
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={setHorizontalRule}>
-                  <Minus className="w-4 h-4 mr-2" />
-                  分隔线
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={clearFormat}>
                   <Highlighter className="w-4 h-4 mr-2" />
                   清除格式
@@ -563,41 +736,21 @@ export default function Tiptap({ initialContent = "开始写作....", onChange, 
             </DropdownMenu>
           </div>
 
-          {/* 操作按钮栏 - 移动端响应式布局 */}
+          {/* 操作按钮栏 */}
           <div className="flex flex-wrap items-center justify-between gap-2 md:gap-3">
             <div className="flex items-center space-x-2">
               <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                {/* 字数: {wordCount} |  */}
                 字符: {charCount}
               </span>
             </div>
 
             <div className="flex items-center space-x-1 md:space-x-2">
-              {/* <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-2 right-10 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleDeleteNote(note.id);
-                }}
-              >
-                <Trash className="" />
-              </Button> */}
-
               <button
                 onClick={() => onChange && onChange(content)}
                 className="px-2 md:px-3 py-1 text-xs md:text-sm bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors duration-200 border border-blue-200 dark:border-blue-800"
               >
                 保存
               </button>
-              {/* <button
-                onClick={loadFromLocalStorage}
-                className="hidden sm:block px-2 md:px-3 py-1 text-xs md:text-sm bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800/50 transition-colors duration-200 border border-green-200 dark:border-green-800"
-              >
-                加载
-              </button> */}
               <button
                 onClick={copyToClipboard}
                 className="hidden sm:block px-2 md:px-3 py-1 text-xs md:text-sm bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded hover:bg-purple-200 dark:hover:bg-purple-800/50 transition-colors duration-200 border border-purple-200 dark:border-purple-800"
@@ -610,12 +763,6 @@ export default function Tiptap({ initialContent = "开始写作....", onChange, 
               >
                 导出 Markdown
               </button>
-              {/* <button
-                onClick={() => setIsPreview(!isPreview)}
-                className="px-2 md:px-3 py-1 text-xs md:text-sm bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200 border border-gray-200 dark:border-gray-700"
-              >
-                {isPreview ? "编辑" : "预览"}
-              </button> */}
               <button
                 onClick={() => { handleDeleteNote(noteId) }}
                 className="px-2 md:px-3 py-1 text-xs md:text-sm bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-white-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors duration-200 border border-blue-200 dark:border-blue-800"
@@ -656,7 +803,7 @@ export default function Tiptap({ initialContent = "开始写作....", onChange, 
         </div>
       </div>
 
-      {/* 编辑器区域 - 移动端padding调整 */}
+      {/* 编辑器区域 */}
       <div className="tiptap-editor overflow-y-auto hide-scrollbar px-2 md:px-4">
         {isPreview ? (
           <div className="prose dark:prose-invert max-w-none p-4 md:p-6">
@@ -704,6 +851,14 @@ export default function Tiptap({ initialContent = "开始写作....", onChange, 
             </div>
           </div>
         </div>
+      )}
+
+      {/* 图片插入对话框 */}
+      {showImageModal && (
+        <ImageInsertDialog
+          editor={editor}
+          onClose={() => setShowImageModal(false)}
+        />
       )}
     </div>
   );

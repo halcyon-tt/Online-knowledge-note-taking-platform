@@ -211,7 +211,7 @@ export default function NotePage({ params }: PageProps) {
       <div className="flex-1 overflow-auto hide-scrollbar">
         <NoteEditor
           noteId={id}
-          initialContent={note.content || "开始写作..."}
+          initialContent={note.content}
           onChange={handleContentChange}
         />
       </div>
