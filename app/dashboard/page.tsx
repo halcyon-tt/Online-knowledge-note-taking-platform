@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Folder, Note } from "@/types/note";
+import { useCurrentFolderIdStore } from "@/lib/store/folders";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function DashboardPage() {
     string | null
   >(null);
   const useLocalStorage = !isSupabaseConfigured();
+  const { setCurrentFolderId } = useCurrentFolderIdStore();
 
   // 加载数据
   useEffect(() => {
@@ -51,7 +53,7 @@ export default function DashboardPage() {
         });
 
         console.log("Note IDs in folders (local):", noteIdsInFolders);
-        
+
         // 过滤掉已经在文件夹中的笔记
         const filteredNotes = localNotes.filter(
           (note) => !noteIdsInFolders.has(note.id)
@@ -109,7 +111,9 @@ export default function DashboardPage() {
 
     loadData();
   }, [useLocalStorage]);
-
+  useEffect(() => {
+    setCurrentFolderId("")
+  }, [])
   // 创建笔记
   const handleCreateNote = async () => {
     if (useLocalStorage) {

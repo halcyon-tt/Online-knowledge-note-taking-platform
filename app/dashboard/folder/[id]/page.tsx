@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { useRouter } from "next/navigation";
+import { redirect, useRouter } from "next/navigation";
 import Link from "next/link";
 import { isSupabaseConfigured, createClient } from "@/lib/supabase/client";
 import {
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { Folder, Note } from "@/types/note";
 import { useCurrentFolderIdStore } from "@/lib/store/folders";
+import { get } from "http";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -46,6 +47,7 @@ export default function FolderPage({ params }: PageProps) {
           return;
         }
         setFolder(localFolder);
+
 
         // 获取文件夹内的笔记
         if (localFolder.notes_id) {
@@ -181,7 +183,7 @@ export default function FolderPage({ params }: PageProps) {
     }
   };
 
-  // 从文件夹移除笔记
+  // 从文件夹移出笔记
   const handleRemoveNote = async (noteId: string) => {
     if (!folder) return;
     const confirmed = window.confirm("确定要从文件夹中移除这个笔记吗？");
@@ -244,6 +246,16 @@ export default function FolderPage({ params }: PageProps) {
 
   // 删除笔记
   const handleDeleteNote = async (noteId: string) => {
+    if (folder) {
+      let notes_string = folder.notes_id.split(",");
+      let result = ""
+      if (notes_string.length > 2) {
+        result = notes_string.filter((nid) => nid !== noteId).join(",");
+      } else {
+        result = notes_string[0];
+      }
+      folder.notes_id = result ? result : "";
+    }
     if (useLocalStorage) {
       const notes = getLocalNotes().filter((n) => n.id !== noteId);
       setNotes(notes);
@@ -251,14 +263,32 @@ export default function FolderPage({ params }: PageProps) {
     } else {
       const supabase = createClient();
       if (!supabase) return;
-      const { error } = await supabase.from("notes").delete().eq("id", noteId);
-      if (error) {
-        console.error("Error deleting note:", error);
-        return;
+      const userId = await getUserId();
+      if (!userId) return;
+      {
+        const { error } = await supabase.from("notes").delete().eq("id", noteId)
+          .eq("user_id", userId);
+        if (error) {
+          console.error("Error deleting note:", error);
+          return;
+        }
+      }
+      {
+        const { error } = await supabase
+          .from("folders")
+          .update({ notes_id: folder.notes_id, updated_at: new Date().toISOString() })
+          .eq("id", id)
+          .eq("user_id", userId);
+        if (error) {
+          console.error("Error deleting note:", error);
+          return;
+        }
       }
       setNotes((prev) => prev.filter((n) => n.id !== noteId));
     }
-    router.refresh();
+    setFolder(folder);
+    // redirect(`/dashboard/folder/${folder.id}`);
+    // window.location.reload();
   };
 
   return (

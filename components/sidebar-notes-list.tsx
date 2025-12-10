@@ -46,25 +46,13 @@ export function SidebarNotesList({
   onKeyDown,
   handleDeleteNote,
 }: SidebarNotesListProps) {
-  // 调试：记录传入的数据类型
-  // console.log('filteredNotes type:', typeof filteredNotes);
-  // console.log('Is array?', Array.isArray(filteredNotes));
-  // console.log('filteredNotes:', filteredNotes);
-  // console.log('notes type:', typeof notes);
-  // console.log('Is notes array?', Array.isArray(notes));
-  // 添加类型保护：确保 filteredNotes 是数组
-  const safeFilteredNotes = Array.isArray(filteredNotes)
-    ? filteredNotes
-    : (Array.isArray(notes) ? [] : []);
-  // 确保 notes 也是安全的
-  const safeNotes = Array.isArray(notes) ? notes : [];
   return (
     <SidebarGroup>
       <SidebarGroupLabel className="flex items-center justify-between">
         <span>我的笔记</span>
         <span className="text-xs text-muted-foreground">
-          {safeFilteredNotes.length}
-          {safeFilteredNotes.length !== safeNotes.length && `/${safeNotes.length}`} 篇
+          {filteredNotes.length}
+          {filteredNotes.length !== notes.length && `/${notes.length}`} 篇
         </span>
       </SidebarGroupLabel>
       <SidebarGroupContent>
@@ -75,7 +63,7 @@ export function SidebarNotesList({
             </div>
           ) : (
             <>
-              {safeFilteredNotes.map((note) => (
+              {Array.isArray(filteredNotes) && filteredNotes.map((note) => (
                 <SidebarNoteItem
                   key={note.id}
                   note={note}
@@ -91,7 +79,7 @@ export function SidebarNotesList({
                   handleDeleteNote={handleDeleteNote}
                 />
               ))}
-              {safeFilteredNotes.length === 0 && (
+              {filteredNotes.length === 0 && (
                 <p className="px-2 py-4 text-sm text-muted-foreground text-center">
                   {searchQuery || selectedTags.length > 0
                     ? "没有匹配的笔记"

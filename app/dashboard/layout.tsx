@@ -8,6 +8,9 @@ import {
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { useCurrentFolderIdStore } from "@/lib/store/folders";
 
 function MainContent({ children }: { children: React.ReactNode }) {
   const { state } = useSidebar();
@@ -35,6 +38,13 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  const { setCurrentFolderId } = useCurrentFolderIdStore();
+  useEffect(() => {
+    
+    if (!pathname.includes("folders")) return;
+    else setCurrentFolderId("")
+  }, [pathname]);
   return (
     <SidebarProvider>
       <AppSidebar />

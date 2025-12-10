@@ -159,7 +159,7 @@ export function AppSidebar() {
           .select("*")
           .eq("user_id", userId)
           .order("updated_at", { ascending: false });
-
+        console.log("Loaded notes:", data.length);
         if (error) {
           console.error("Error loading notes:", error);
           setNotes([]);
@@ -199,15 +199,12 @@ export function AppSidebar() {
   }, [pathname, loadNotes]);
 
   // 过滤笔记
-  const filteredNotes = useMemo(async () => {
+  const filteredNotes = useMemo(() => {
     let result = [...notes];
-    console.log("过滤笔记notes1", result);
     // 修正文件夹过滤条件：检查是否存在且非空
     if (folderNoteIds && Array.isArray(folderNoteIds) && folderNoteIds.length > 0) {
       result = result.filter(note => folderNoteIds.includes(note.id));
     }
-    console.log("folderNoteIds", folderNoteIds);
-    console.log("过滤笔记notes2", result);
     // 第二步：应用搜索和标签过滤
     if (!searchQuery && selectedTags.length === 0) {
       return result;
