@@ -379,25 +379,31 @@ export default function Tiptap({ initialContent = "", onChange, noteId }: Tiptap
 
     const html = editor.getHTML();
     const markdown = html
+      // 先处理行内元素
+      .replace(/<strong>(.*?)<\/strong>/g, "**$1**")
+      .replace(/<em>(.*?)<\/em>/g, "*$1*")
+      .replace(/<code>(.*?)<\/code>/g, "`$1`")
+      // 处理链接和图片
+      .replace(/<a href="(.*?)">(.*?)<\/a>/g, "[$2]($1)")
+      .replace(/<img[^>]*src="([^"]*)"[^>]*>/g, "![图片]($1)")
+      // 处理标题
       .replace(/<h1>(.*?)<\/h1>/g, "# $1\n\n")
       .replace(/<h2>(.*?)<\/h2>/g, "## $1\n\n")
       .replace(/<h3>(.*?)<\/h3>/g, "### $1\n\n")
       .replace(/<h4>(.*?)<\/h4>/g, "#### $1\n\n")
       .replace(/<h5>(.*?)<\/h5>/g, "##### $1\n\n")
       .replace(/<h6>(.*?)<\/h6>/g, "###### $1\n\n")
-      .replace(/<p>(.*?)<\/p>/g, "$1\n\n")
-      .replace(/<strong>(.*?)<\/strong>/g, "**$1**")
-      .replace(/<em>(.*?)<\/em>/g, "*$1*")
-      .replace(/<code>(.*?)<\/code>/g, "`$1`")
+      // 处理列表（需要区分有序和无序）
+      .replace(/<ul>([\s\S]*?)<\/ul>/g, (match, content) =>
+        content.replace(/<li>(.*?)<\/li>/g, "- $1\n"))
+      .replace(/<ol>([\s\S]*?)<\/ol>/g, (match, content) =>
+        content.replace(/<li>(.*?)<\/li>/g, (match: any, item: any, index: number) => `${index + 1}. ${item}\n`))
+      // 处理其他块级元素
       .replace(/<blockquote>(.*?)<\/blockquote>/g, "> $1")
-      .replace(/<ul>(.*?)<\/ul>/g, "$1")
-      .replace(/<li>(.*?)<\/li>/g, "- $1\n")
-      .replace(/<ol>(.*?)<\/ol>/g, "$1")
-      .replace(/<li>(.*?)<\/li>/g, "1. $1\n")
-      .replace(/<a href="(.*?)">(.*?)<\/a>/g, "[$2]($1)")
-      .replace(/<img src="(.*?)".*?>/g, "![图片]($1)")
+      .replace(/<p>(.*?)<\/p>/g, "$1\n\n")
       .replace(/<hr>/g, "\n---\n")
       .replace(/<br>/g, "\n")
+      // 最后清理剩余的标签
       .replace(/<[^>]*>/g, "");
 
     // 下载文件
