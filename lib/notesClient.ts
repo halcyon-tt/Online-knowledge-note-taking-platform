@@ -44,6 +44,13 @@ export const localNoteClient: NoteClient = {
       content: input.content || "",
       createdAt: now,
       updatedAt: now,
+      userId: input.userId || "default-user",
+      isPublic: input.isPublic || false,
+      isPinned: input.isPinned || false,
+      viewCount: input.viewCount || 0,
+      htmlContent: input.htmlContent,
+      categoryId: input.categoryId,
+      deletedAt: input.deletedAt,
     };
     // id: string;
     // userId: string; // 对应user_id
@@ -111,5 +118,3 @@ export const localNoteClient: NoteClient = {
 //     await fetch(`/api/notes/${id}`, { method: "DELETE" });
 //   },
 // };
-
-

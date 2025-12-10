@@ -13,7 +13,15 @@ import {
 import { getUserId } from "@/lib/auth-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, FileText, Trash2, Edit2, MoreVertical, LogOut, Trash } from "lucide-react";
+import {
+  ArrowLeft,
+  FileText,
+  Trash2,
+  Edit2,
+  MoreVertical,
+  LogOut,
+  Trash,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,15 +56,14 @@ export default function FolderPage({ params }: PageProps) {
         }
         setFolder(localFolder);
 
-
         // 获取文件夹内的笔记
         if (localFolder.notes_id) {
           const noteIds = localFolder.notes_id
             .split(",")
             .filter((nid) => nid.trim() !== "");
           const allNotes = getLocalNotes();
-          const folderNotes = allNotes.filter((note) =>
-            noteIds.includes(note.id)
+          const folderNotes = allNotes.filter(
+            (note) => note.id && noteIds.includes(note.id)
           );
           setNotes(folderNotes);
         }
@@ -248,7 +255,7 @@ export default function FolderPage({ params }: PageProps) {
   const handleDeleteNote = async (noteId: string) => {
     if (folder) {
       let notes_string = folder.notes_id.split(",");
-      let result = ""
+      let result = "";
       if (notes_string.length > 2) {
         result = notes_string.filter((nid) => nid !== noteId).join(",");
       } else {
@@ -266,7 +273,10 @@ export default function FolderPage({ params }: PageProps) {
       const userId = await getUserId();
       if (!userId) return;
       {
-        const { error } = await supabase.from("notes").delete().eq("id", noteId)
+        const { error } = await supabase
+          .from("notes")
+          .delete()
+          .eq("id", noteId)
           .eq("user_id", userId);
         if (error) {
           console.error("Error deleting note:", error);
@@ -276,7 +286,10 @@ export default function FolderPage({ params }: PageProps) {
       {
         const { error } = await supabase
           .from("folders")
-          .update({ notes_id: folder.notes_id, updated_at: new Date().toISOString() })
+          .update({
+            notes_id: folder.notes_id,
+            updated_at: new Date().toISOString(),
+          })
           .eq("id", id)
           .eq("user_id", userId);
         if (error) {
@@ -373,7 +386,9 @@ export default function FolderPage({ params }: PageProps) {
                       : "暂无内容"}
                   </p>
                   <p className="text-xs text-muted-foreground mt-2 md:mt-3">
-                    {new Date(note.updated_at).toLocaleDateString("zh-CN")}
+                    {note.updated_at
+                      ? new Date(note.updated_at).toLocaleDateString("zh-CN")
+                      : "无日期"}
                   </p>
                 </CardContent>
               </Link>
@@ -385,7 +400,7 @@ export default function FolderPage({ params }: PageProps) {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  handleDeleteNote(note.id);
+                  if (note.id) handleDeleteNote(note.id);
                 }}
               >
                 <Trash className="" />
@@ -398,7 +413,7 @@ export default function FolderPage({ params }: PageProps) {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  handleRemoveNote(note.id);
+                  if (note.id) handleRemoveNote(note.id);
                 }}
               >
                 {/* <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /> */}

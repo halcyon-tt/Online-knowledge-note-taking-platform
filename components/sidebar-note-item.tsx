@@ -44,7 +44,7 @@ export function SidebarNoteItem({
           <Input
             value={editingTitle}
             onChange={(e) => onTitleChange(e.target.value)}
-            onKeyDown={(e) => onKeyDown(e, note.id)}
+            onKeyDown={(e) => note.id && onKeyDown(e, note.id)}
             className="h-7 text-sm flex-1"
             autoFocus
             placeholder="笔记标题"
@@ -53,7 +53,7 @@ export function SidebarNoteItem({
             size="icon"
             variant="ghost"
             className="h-6 w-6 shrink-0"
-            onClick={() => onSaveTitle(note.id)}
+            onClick={() => note.id && onSaveTitle(note.id)}
           >
             <Check className="h-3.5 w-3.5 text-green-600" />
           </Button>
