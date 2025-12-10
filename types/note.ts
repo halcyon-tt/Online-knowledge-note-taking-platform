@@ -1,10 +1,10 @@
 export interface Note {
-  id: string;
-  title: string;
-  content: string;
+  id?: string;
+  title?: string;
+  content?: string;
   tags?: string[]; // 添加标签字段
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Tag {
@@ -13,7 +13,7 @@ export interface Tag {
   color: string;
 }
 
-export interface Folder{
+export interface Folder {
   id: string;
   // user_id: string;
   name: string;

@@ -56,7 +56,7 @@ export default function DashboardPage() {
 
         // 过滤掉已经在文件夹中的笔记
         const filteredNotes = localNotes.filter(
-          (note) => !noteIdsInFolders.has(note.id)
+          (note) => note.id && !noteIdsInFolders.has(note.id)
         );
 
         setNotes(filteredNotes.slice(0, 6));
@@ -98,7 +98,7 @@ export default function DashboardPage() {
 
             // 过滤掉已经在文件夹中的笔记
             const filteredNotes = allNotes.filter(
-              (note) => !noteIdsInFolders.has(note.id)
+              (note) => note.id && !noteIdsInFolders.has(note.id)
             );
 
             setNotes(filteredNotes.slice(0, 6));
@@ -112,8 +112,8 @@ export default function DashboardPage() {
     loadData();
   }, [useLocalStorage]);
   useEffect(() => {
-    setCurrentFolderId("")
-  }, [])
+    setCurrentFolderId("");
+  }, []);
   // 创建笔记
   const handleCreateNote = async () => {
     if (useLocalStorage) {
@@ -396,7 +396,9 @@ export default function DashboardPage() {
             key={note.id}
             href={`/dashboard/notes/${note.id}`}
             draggable
-            onDragStart={(e) => handleDragStart(e, note.id)}
+            onDragStart={(e) => {
+              if (note.id) handleDragStart(e, note.id);
+            }}
             onDragEnd={handleDragEnd}
             className={`
               cursor-move transition-opacity block
@@ -418,7 +420,9 @@ export default function DashboardPage() {
                 </p>
                 <div className="flex items-center justify-between mt-2 md:mt-3">
                   <p className="text-xs text-muted-foreground">
-                    {new Date(note.updated_at).toLocaleDateString("zh-CN")}
+                    {note.updated_at
+                      ? new Date(note.updated_at).toLocaleDateString("zh-CN")
+                      : "无日期"}
                   </p>
                   <div className="hidden sm:block text-xs text-muted-foreground px-2 py-1 bg-muted rounded">
                     可拖拽

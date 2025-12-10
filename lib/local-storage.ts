@@ -5,8 +5,6 @@ const TAGS_STORAGE_KEY = "local_tags"; // 添加标签存储键
 
 const FOLDERS_STORAGE_KEY = "local_folders"; // 添加文件夹存储键
 
-
-
 // 获取所有笔记
 export function getLocalNotes(): Note[] {
   if (typeof window === "undefined") return [];
@@ -36,10 +34,10 @@ export function saveLocalFolders(folders: Folder[]) {
 // 在 lib/local-storage.ts 中添加以下函数
 export function updateLocalFolder(updatedFolder: Folder) {
   const folders = getLocalFolders();
-  const index = folders.findIndex(f => f.id === updatedFolder.id);
+  const index = folders.findIndex((f) => f.id === updatedFolder.id);
   if (index !== -1) {
     folders[index] = updatedFolder;
-    localStorage.setItem('folders', JSON.stringify(folders));
+    localStorage.setItem("folders", JSON.stringify(folders));
   }
   return updatedFolder;
 }
@@ -49,16 +47,15 @@ export function updateLocalFolder(updatedFolder: Folder) {
 // 获取单个文件夹
 export function getLocalFolder(folderId: string): Folder | null {
   const folders = getLocalFolders();
-  return folders.find(folder => folder.id === folderId) || null;
+  return folders.find((folder) => folder.id === folderId) || null;
 }
 
 // 删除文件夹
 export function deleteLocalFolder(folderId: string): void {
   const folders = getLocalFolders();
-  const newFolders = folders.filter(folder => folder.id !== folderId);
-  localStorage.setItem('folders', JSON.stringify(newFolders));
+  const newFolders = folders.filter((folder) => folder.id !== folderId);
+  localStorage.setItem("folders", JSON.stringify(newFolders));
 }
-
 
 // 获取单个笔记
 export function getLocalNote(id: string): Note | null {
@@ -205,10 +202,7 @@ export function addTagToNote(noteId: string, tagId: string): Note | null {
 }
 
 // 从笔记移除标签
-export function removeTagFromNote(
-  noteId: string,
-  tagId: string
-): Note | null {
+export function removeTagFromNote(noteId: string, tagId: string): Note | null {
   const notes = getLocalNotes();
   const index = notes.findIndex((n) => n.id === noteId);
   if (index === -1) return null;
@@ -231,8 +225,8 @@ export function searchLocalNotes(query: string, filterTags?: string[]): Note[] {
     // 关键字匹配（标题或内容）
     const matchesQuery =
       !query ||
-      note.title.toLowerCase().includes(lowerQuery) ||
-      note.content.toLowerCase().includes(lowerQuery);
+      (note.title && note.title.toLowerCase().includes(lowerQuery)) ||
+      (note.content && note.content.toLowerCase().includes(lowerQuery));
 
     // 标签匹配
     const matchesTags =

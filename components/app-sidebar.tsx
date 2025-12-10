@@ -131,8 +131,6 @@ export function AppSidebar() {
     fetchFolderNoteIds();
   }, [currentFolderId, useLocalStorage]);
 
-
-
   // 加载笔记的函数
   const loadNotes = useCallback(async () => {
     setLoading(true);
@@ -202,8 +200,14 @@ export function AppSidebar() {
   const filteredNotes = useMemo(() => {
     let result = [...notes];
     // 修正文件夹过滤条件：检查是否存在且非空
-    if (folderNoteIds && Array.isArray(folderNoteIds) && folderNoteIds.length > 0) {
-      result = result.filter(note => folderNoteIds.includes(note.id));
+    if (
+      folderNoteIds &&
+      Array.isArray(folderNoteIds) &&
+      folderNoteIds.length > 0
+    ) {
+      result = result.filter(
+        (note) => note.id && folderNoteIds.includes(note.id)
+      );
     }
     // 第二步：应用搜索和标签过滤
     if (!searchQuery && selectedTags.length === 0) {
@@ -215,15 +219,15 @@ export function AppSidebar() {
     }
 
     const lowerQuery = searchQuery.toLowerCase();
-    return result.filter(note => {
+    return result.filter((note) => {
       const matchesQuery =
         !searchQuery ||
-        note.title.toLowerCase().includes(lowerQuery) ||
-        note.content.toLowerCase().includes(lowerQuery);
+        (note.title && note.title.toLowerCase().includes(lowerQuery)) ||
+        (note.content && note.content.toLowerCase().includes(lowerQuery));
 
       const matchesTags =
         selectedTags.length === 0 ||
-        selectedTags.some(tag => note.tags?.includes(tag));
+        selectedTags.some((tag) => note.tags?.includes(tag));
 
       return matchesQuery && matchesTags;
     });
@@ -259,7 +263,6 @@ export function AppSidebar() {
   //       }
 
   //       return notes.filter((note) => notes_id.includes(note.id));
-
 
   //     } catch (error) {
   //       console.error("Unexpected error:", error);
@@ -419,7 +422,7 @@ export function AppSidebar() {
   const handleStartEdit = (e: React.MouseEvent, note: Note) => {
     e.preventDefault();
     e.stopPropagation();
-    setEditingId(note.id);
+    if (note.id) setEditingId(note.id);
     setEditingTitle(note.title || "");
   };
 
@@ -448,10 +451,10 @@ export function AppSidebar() {
         prev.map((n) =>
           n.id === noteId
             ? {
-              ...n,
-              title: trimmedTitle,
-              updated_at: new Date().toISOString(),
-            }
+                ...n,
+                title: trimmedTitle,
+                updated_at: new Date().toISOString(),
+              }
             : n
         )
       );
@@ -484,7 +487,7 @@ export function AppSidebar() {
       const supabase = createClient();
       if (supabase) {
         await supabase.auth.signOut();
-        await supabase.auth.signOutWithOAuth()
+        await supabase.auth.signOutWithOAuth();
         setLoginStatus("登录/注册");
       }
     } else {
