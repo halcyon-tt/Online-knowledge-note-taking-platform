@@ -527,6 +527,7 @@ export default function DashboardPage() {
             <PaginationContent>
               <PaginationItem>
                 <PaginationPrevious
+                  size="default"
                   onClick={() => handlePageChange(currentPage - 1)}
                   className={
                     currentPage === 1
@@ -542,6 +543,7 @@ export default function DashboardPage() {
                     <PaginationEllipsis />
                   ) : (
                     <PaginationLink
+                      size="default"
                       onClick={() => handlePageChange(page)}
                       isActive={currentPage === page}
                       className="cursor-pointer"
@@ -554,6 +556,7 @@ export default function DashboardPage() {
 
               <PaginationItem>
                 <PaginationNext
+                  size="default"
                   onClick={() => handlePageChange(currentPage + 1)}
                   className={
                     currentPage === totalPages
