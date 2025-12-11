@@ -19,10 +19,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Folder, Note } from "@/types/note";
 import { useCurrentFolderIdStore } from "@/lib/store/folders";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from "@/components/ui/pagination";
+
+const NOTES_PER_PAGE = 6;
 
 export default function DashboardPage() {
   const router = useRouter();
   const [notes, setNotes] = useState<Note[]>([]);
+  const [allNotes, setAllNotes] = useState<Note[]>([]); // 存储所有笔记
   const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
@@ -31,6 +43,9 @@ export default function DashboardPage() {
   >(null);
   const useLocalStorage = !isSupabaseConfigured();
   const { setCurrentFolderId } = useCurrentFolderIdStore();
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   // 加载数据
   useEffect(() => {
@@ -59,7 +74,9 @@ export default function DashboardPage() {
           (note) => note.id && !noteIdsInFolders.has(note.id)
         );
 
-        setNotes(filteredNotes.slice(0, 6));
+        setAllNotes(filteredNotes);
+        setTotalPages(Math.ceil(filteredNotes.length / NOTES_PER_PAGE) || 1);
+        setNotes(filteredNotes.slice(0, NOTES_PER_PAGE));
         setFolders(localFolders.slice(0, 6));
       } else {
         const supabase = createClient();
@@ -72,8 +89,7 @@ export default function DashboardPage() {
                 .from("notes")
                 .select("*")
                 .eq("user_id", userId)
-                .order("updated_at", { ascending: false })
-                .limit(50), // 获取更多以便过滤
+                .order("updated_at", { ascending: false }),
               supabase
                 .from("folders")
                 .select("*")
@@ -82,7 +98,7 @@ export default function DashboardPage() {
                 .limit(6),
             ]);
 
-            const allNotes = (notesResult.data as Note[]) || [];
+            const fetchedNotes = (notesResult.data as Note[]) || [];
             const allFolders = (foldersResult.data as Folder[]) || [];
 
             // 获取所有文件夹中的笔记ID
@@ -97,11 +113,15 @@ export default function DashboardPage() {
             });
 
             // 过滤掉已经在文件夹中的笔记
-            const filteredNotes = allNotes.filter(
+            const filteredNotes = fetchedNotes.filter(
               (note) => note.id && !noteIdsInFolders.has(note.id)
             );
 
-            setNotes(filteredNotes.slice(0, 6));
+            setAllNotes(filteredNotes);
+            setTotalPages(
+              Math.ceil(filteredNotes.length / NOTES_PER_PAGE) || 1
+            );
+            setNotes(filteredNotes.slice(0, NOTES_PER_PAGE));
             setFolders(allFolders);
           }
         }
@@ -111,9 +131,59 @@ export default function DashboardPage() {
 
     loadData();
   }, [useLocalStorage]);
+
+  useEffect(() => {
+    const startIndex = (currentPage - 1) * NOTES_PER_PAGE;
+    const endIndex = startIndex + NOTES_PER_PAGE;
+    setNotes(allNotes.slice(startIndex, endIndex));
+  }, [currentPage, allNotes]);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      // 滚动到笔记区域顶部
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const getPageNumbers = () => {
+    const pages: (number | "ellipsis")[] = [];
+
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // 始终显示第一页
+      pages.push(1);
+
+      if (currentPage > 3) {
+        pages.push("ellipsis");
+      }
+
+      // 显示当前页附近的页码
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+
+      if (currentPage < totalPages - 2) {
+        pages.push("ellipsis");
+      }
+
+      // 始终显示最后一页
+      pages.push(totalPages);
+    }
+
+    return pages;
+  };
+
   useEffect(() => {
     setCurrentFolderId("");
   }, []);
+
   // 创建笔记
   const handleCreateNote = async () => {
     if (useLocalStorage) {
@@ -236,8 +306,16 @@ export default function DashboardPage() {
           prev.map((f) => (f.id === folderId ? updatedFolder : f))
         );
 
-        // 从笔记列表中移除
-        setNotes((prev) => prev.filter((n) => n.id !== noteId));
+        const updatedAllNotes = allNotes.filter((n) => n.id !== noteId);
+        setAllNotes(updatedAllNotes);
+        setTotalPages(Math.ceil(updatedAllNotes.length / NOTES_PER_PAGE) || 1);
+        // 如果当前页没有笔记了，回到上一页
+        if (
+          currentPage > 1 &&
+          (currentPage - 1) * NOTES_PER_PAGE >= updatedAllNotes.length
+        ) {
+          setCurrentPage(currentPage - 1);
+        }
       }
     } else {
       // Supabase 模式
@@ -282,8 +360,17 @@ export default function DashboardPage() {
             prev.map((f) => (f.id === folderId ? (data as Folder) : f))
           );
 
-          // 从笔记列表中移除
-          setNotes((prev) => prev.filter((n) => n.id !== noteId));
+          const updatedAllNotes = allNotes.filter((n) => n.id !== noteId);
+          setAllNotes(updatedAllNotes);
+          setTotalPages(
+            Math.ceil(updatedAllNotes.length / NOTES_PER_PAGE) || 1
+          );
+          if (
+            currentPage > 1 &&
+            (currentPage - 1) * NOTES_PER_PAGE >= updatedAllNotes.length
+          ) {
+            setCurrentPage(currentPage - 1);
+          }
 
           alert(`笔记已添加到文件夹 ${targetFolder.name}`);
         }
@@ -433,6 +520,57 @@ export default function DashboardPage() {
           </Link>
         ))}
       </div>
+
+      {totalPages > 1 && (
+        <div className="mt-8">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  className={
+                    currentPage === 1
+                      ? "pointer-events-none opacity-50"
+                      : "cursor-pointer"
+                  }
+                />
+              </PaginationItem>
+
+              {getPageNumbers().map((page, index) => (
+                <PaginationItem key={index}>
+                  {page === "ellipsis" ? (
+                    <PaginationEllipsis />
+                  ) : (
+                    <PaginationLink
+                      onClick={() => handlePageChange(page)}
+                      isActive={currentPage === page}
+                      className="cursor-pointer"
+                    >
+                      {page}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              ))}
+
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  className={
+                    currentPage === totalPages
+                      ? "pointer-events-none opacity-50"
+                      : "cursor-pointer"
+                  }
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+
+          {/* 分页信息 */}
+          <p className="text-center text-sm text-muted-foreground mt-3">
+            共 {allNotes.length} 篇笔记，第 {currentPage} / {totalPages} 页
+          </p>
+        </div>
+      )}
 
       {/* 拖拽提示 - 移动端隐藏 */}
       {draggingNoteId && (
