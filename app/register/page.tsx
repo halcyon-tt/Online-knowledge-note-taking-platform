@@ -12,8 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import Image from "next/image";
-import { Loader2, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signUpWithEmail, signInWithGitHub } from "@/lib/auth-utils";
@@ -25,48 +24,7 @@ export default function SignUp() {
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [loading, setLoading] = useState(false);
-    const [image, setImage] = useState<File | null>(null);
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
     const router = useRouter();
-
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setImage(file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setImagePreview(reader.result as string);
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    const uploadImage = async (userId: string) => {
-        if (!image) return null;
-
-        const supabase = createClient();
-        if (!supabase) return null;
-
-        const fileExt = image.name.split('.').pop();
-        const fileName = `${userId}.${fileExt}`;
-        const filePath = `avatars/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-            .from('user-avatars')
-            .upload(filePath, image);
-
-        if (uploadError) {
-            console.error('Error uploading image:', uploadError);
-            return null;
-        }
-
-        const { data: { publicUrl } } = supabase.storage
-            .from('user-avatars')
-            .getPublicUrl(filePath);
-
-        return publicUrl;
-    };
-
     const handleSignUp = async () => {
         // 验证表单
         if (!username || !email || !password || !confirmPassword) {

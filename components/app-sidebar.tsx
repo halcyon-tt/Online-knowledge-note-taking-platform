@@ -157,7 +157,7 @@ export function AppSidebar() {
           .select("*")
           .eq("user_id", userId)
           .order("updated_at", { ascending: false });
-        console.log("Loaded notes:", data.length);
+        // console.log("Loaded notes:", data.length);
         if (error) {
           console.error("Error loading notes:", error);
           setNotes([]);

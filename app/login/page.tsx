@@ -88,14 +88,14 @@ export default function SignIn() {
                             />
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        {/* <div className="flex items-center gap-2">
                             <Checkbox
                                 id="remember"
                                 checked={rememberMe}
                                 onCheckedChange={(checked) => setRememberMe(checked as boolean)}
                             />
                             <Label htmlFor="remember" className="cursor-pointer">记住我</Label>
-                        </div>
+                        </div> */}
 
                         <Button
                             type="button"

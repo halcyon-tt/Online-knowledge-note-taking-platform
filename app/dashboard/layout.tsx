@@ -41,7 +41,6 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const { setCurrentFolderId } = useCurrentFolderIdStore();
   useEffect(() => {
-    
     if (!pathname.includes("folders")) return;
     else setCurrentFolderId("")
   }, [pathname]);

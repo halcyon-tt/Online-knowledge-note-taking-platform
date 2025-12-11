@@ -869,3 +869,4 @@ export default function Tiptap({ initialContent = "", onChange, noteId }: Tiptap
     </div>
   );
 }
+
