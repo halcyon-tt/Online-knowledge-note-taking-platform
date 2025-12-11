@@ -52,7 +52,7 @@ export function AppSidebar() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [loginStatus, setLoginStatus] = useState("登录/注册");
   const [folderNoteIds, setFolderNoteIds] = useState<string[] | null>(null);
-
+  const [filteredNotes, setFilteredNotes] = useState<Note[]>([]);
   // 侧边栏打开状态
   const { state, setOpenMobile } = useSidebar();
   const isMobile = useIsMobile();
@@ -196,103 +196,56 @@ export function AppSidebar() {
     }
   }, [pathname, loadNotes]);
 
-  // 过滤笔记
-  const filteredNotes = useMemo(() => {
-    let result = [...notes];
-    // 修正文件夹过滤条件：检查是否存在且非空
-    if (
-      folderNoteIds &&
-      Array.isArray(folderNoteIds) &&
-      folderNoteIds.length > 0
-    ) {
-      result = result.filter(
-        (note) => note.id && folderNoteIds.includes(note.id)
-      );
-    }
-    // 第二步：应用搜索和标签过滤
-    if (!searchQuery && selectedTags.length === 0) {
-      return result;
-    }
+  // 使用 useEffect 处理过滤逻辑
+  useEffect(() => {
+    const filterNotes = async () => {
+      setLoading(true);
+      try {
+        let result = [...notes];
 
-    if (useLocalStorage) {
-      return searchLocalNotes(searchQuery, selectedTags);
-    }
+        // 文件夹过滤
+        if (folderNoteIds && Array.isArray(folderNoteIds) && folderNoteIds.length > 0) {
+          result = result.filter((note) => note.id && folderNoteIds.includes(note.id));
+        }
 
-    const lowerQuery = searchQuery.toLowerCase();
-    return result.filter((note) => {
-      const matchesQuery =
-        !searchQuery ||
-        (note.title && note.title.toLowerCase().includes(lowerQuery)) ||
-        (note.content && note.content.toLowerCase().includes(lowerQuery));
+        // 搜索过滤
+        if (searchQuery) {
+          const lowerQuery = searchQuery.toLowerCase();
+          result = result.filter((note) => {
+            return (
+              (note.title && note.title.toLowerCase().includes(lowerQuery)) ||
+              (note.content && note.content.toLowerCase().includes(lowerQuery))
+            );
+          });
+        }
 
-      const matchesTags =
-        selectedTags.length === 0 ||
-        selectedTags.some((tag) => note.tags?.includes(tag));
+        // 标签过滤
+        if (selectedTags.length > 0) {
+          const supabase = createClient();
+          const selectedNoteId = new Set<string>();
+          for (const selectedTag of selectedTags) {
+            const { data } = await supabase
+              .from('note_tags')
+              .select('note_id')
+              .eq('tag_id', selectedTag);
+            for (const item of data || []) {
+              selectedNoteId.add(item.note_id);
+            }
+          }
+          result = result.filter((note) => note.id && selectedNoteId.has(note.id));
+        }
+        setFilteredNotes(result);
+      } catch (error) {
+        console.error('过滤笔记时出错:', error);
+        setFilteredNotes([]);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      return matchesQuery && matchesTags;
-    });
-  }, [notes, folderNoteIds, searchQuery, selectedTags, useLocalStorage]);
+    filterNotes();
+  }, [notes, folderNoteIds, searchQuery, selectedTags]);
 
-  //   if (currentFolderId.trim() !== "") {
-  //     const supabase = createClient();
-  //     if (!supabase) {
-  //       console.error("No Supabase client");
-  //       return;
-  //     }
-
-  //     const userId = await getUserId();
-  //     if (!userId) {
-  //       alert("请先登录");
-  //       router.push("/login");
-  //       return;
-  //     }
-
-  //     try {
-  //       const { data, error } = await supabase
-  //         .from("folders")
-  //         .select()
-  //         .eq("id", currentFolderId)
-  //         .single();
-
-  //       const notes_id = data.notes_id.split(",") as string[];
-  //       console.log("notes_id:", notes.filter((note) => notes_id.includes(note.id)));
-
-  //       if (error) {
-  //         console.error("Error creating note:", error);
-  //         return;
-  //       }
-
-  //       return notes.filter((note) => notes_id.includes(note.id));
-
-  //     } catch (error) {
-  //       console.error("Unexpected error:", error);
-  //       alert("查询文件夹时发生未知错误");
-  //     }
-
-  //   }
-
-  //   if (!searchQuery && selectedTags.length === 0) {
-  //     return notes;
-  //   }
-
-  //   if (useLocalStorage) {
-  //     return searchLocalNotes(searchQuery, selectedTags);
-  //   }
-
-  //   const lowerQuery = searchQuery.toLowerCase();
-  //   return notes.filter((note) => {
-  //     const matchesQuery =
-  //       !searchQuery ||
-  //       note.title.toLowerCase().includes(lowerQuery) ||
-  //       note.content.toLowerCase().includes(lowerQuery);
-
-  //     const matchesTags =
-  //       selectedTags.length === 0 ||
-  //       selectedTags.some((tag) => note.tags?.includes(tag));
-
-  //     return matchesQuery && matchesTags;
-  //   });
-  // }, [notes, searchQuery, selectedTags, useLocalStorage]);
 
   // 创建新笔记
   const handleCreateNote = async () => {
@@ -410,12 +363,13 @@ export function AppSidebar() {
   };
 
   // 切换标签过滤
-  const toggleTagFilter = (tagName: string) => {
+  const toggleTagFilter = (tagId: string) => {
     setSelectedTags((prev) =>
-      prev.includes(tagName)
-        ? prev.filter((t) => t !== tagName)
-        : [...prev, tagName]
+      prev.includes(tagId)
+        ? prev.filter((t) => t !== tagId)
+        : [...prev, tagId]
     );
+    // console.log(notes);
   };
 
   // 开始编辑标题
@@ -451,10 +405,10 @@ export function AppSidebar() {
         prev.map((n) =>
           n.id === noteId
             ? {
-                ...n,
-                title: trimmedTitle,
-                updated_at: new Date().toISOString(),
-              }
+              ...n,
+              title: trimmedTitle,
+              updated_at: new Date().toISOString(),
+            }
             : n
         )
       );

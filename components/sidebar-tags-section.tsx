@@ -22,7 +22,7 @@ interface SidebarTagsSectionProps {
   selectedTags: string[];
   onTagCreate: (name: string) => void;
   onTagDelete: (tagId: string) => void;
-  onTagToggle: (tagName: string) => void;
+  onTagToggle: (tagId: string) => void;
   onClearFilter: () => void;
 }
 
@@ -110,7 +110,7 @@ export function SidebarTagsSection({
                 <Badge
                   key={tag.id}
                   variant={
-                    selectedTags.includes(tag.name) ? "default" : "outline"
+                    selectedTags.includes(tag.id) ? "default" : "outline"
                   }
                   className="cursor-pointer text-xs h-6 group max-w-[100px] min-w-0 flex-shrink-0 overflow-hidden"
                 >
@@ -119,7 +119,7 @@ export function SidebarTagsSection({
                   />
                   <span
                     className="truncate min-w-0 flex-1"
-                    onClick={() => onTagToggle(tag.name)}
+                    onClick={() => onTagToggle(tag.id)}
                   >
                     {tag.name}
                   </span>
