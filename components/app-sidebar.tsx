@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useEffect, useState, useMemo, useCallback, use } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Plus, Home, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -15,7 +15,6 @@ import {
   getLocalTags,
   createLocalTag,
   deleteLocalTag,
-  searchLocalNotes,
 } from "@/lib/local-storage";
 import {
   Sidebar,
@@ -33,6 +32,7 @@ import { SidebarSearch } from "@/components/sidebar-search";
 import { SidebarTagsSection } from "@/components/sidebar-tags-section";
 import { SidebarNotesList } from "@/components/sidebar-notes-list";
 import { AISearchDialog } from "@/components/ai-search-dialog";
+import { NoteNameDialog } from "@/components/note-name-dialog";
 import type { Note, Tag as TagType } from "@/types/note";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -53,12 +53,11 @@ export function AppSidebar() {
   const [loginStatus, setLoginStatus] = useState("登录/注册");
   const [folderNoteIds, setFolderNoteIds] = useState<string[] | null>(null);
   const [filteredNotes, setFilteredNotes] = useState<Note[]>([]);
-  // 侧边栏打开状态
+  const [showNameDialog, setShowNameDialog] = useState(false);
   const { state, setOpenMobile } = useSidebar();
   const isMobile = useIsMobile();
   const { currentFolderId, setCurrentFolderId } = useCurrentFolderIdStore();
 
-  // 检查登录状态
   useEffect(() => {
     async function checkLoginStatus() {
       if (!useLocalStorage) {
@@ -98,7 +97,6 @@ export function AppSidebar() {
         return;
       }
       try {
-        // console.log("Fetching note IDs for folder:", currentFolderId);
         const { data, error } = await supabase
           .from("folders")
           .select("notes_id")
@@ -113,14 +111,13 @@ export function AppSidebar() {
         }
 
         if (data && data.notes_id) {
-          // 确保 notes_id 存在且是有效字符串
           const ids = data.notes_id
             .split(",")
             .filter((id: string) => id && id.trim() !== "")
             .map((id: string) => id.trim());
           setFolderNoteIds(ids);
         } else {
-          setFolderNoteIds(null); // 设置为空数组，而不是 null
+          setFolderNoteIds(null);
         }
       } catch (error) {
         console.error("Unexpected error:", error);
@@ -131,7 +128,6 @@ export function AppSidebar() {
     fetchFolderNoteIds();
   }, [currentFolderId, useLocalStorage]);
 
-  // 加载笔记的函数
   const loadNotes = useCallback(async () => {
     setLoading(true);
     try {
@@ -157,7 +153,7 @@ export function AppSidebar() {
           .select("*")
           .eq("user_id", userId)
           .order("updated_at", { ascending: false });
-        // console.log("Loaded notes:", data.length);
+
         if (error) {
           console.error("Error loading notes:", error);
           setNotes([]);
@@ -165,7 +161,6 @@ export function AppSidebar() {
           setNotes((data as Note[]) || []);
         }
 
-        // 加载标签
         const { data: tagsData } = await supabase
           .from("tags")
           .select("*")
@@ -184,31 +179,53 @@ export function AppSidebar() {
     }
   }, [useLocalStorage]);
 
-  // 获取用户笔记 - 初始加载和 useLocalStorage 变化时
   useEffect(() => {
     loadNotes();
   }, [loadNotes]);
 
-  // 监听 pathname 变化，当路由变化时重新加载笔记
-  useEffect(() => {
-    if (pathname) {
-      loadNotes();
-    }
-  }, [pathname, loadNotes]);
+  const getTaggedNoteIds = useCallback(async () => {
+    if (selectedTags.length === 0) return null;
 
-  // 使用 useEffect 处理过滤逻辑
+    if (useLocalStorage) {
+      return new Set(
+        notes
+          .filter((note) =>
+            note.tags?.some((tag) => selectedTags.includes(tag))
+          )
+          .map((note) => note.id)
+          .filter(Boolean) as string[]
+      );
+    } else {
+      const supabase = createClient();
+      if (!supabase) return null;
+
+      const { data } = await supabase
+        .from("note_tags")
+        .select("note_id")
+        .in("tag_id", selectedTags);
+
+      return new Set(
+        (data || []).map((item: { note_id: string }) => item.note_id)
+      );
+    }
+  }, [selectedTags, useLocalStorage, notes]);
+
   useEffect(() => {
-    const filterNotes = async () => {
+    const timeoutId = setTimeout(async () => {
       setLoading(true);
       try {
         let result = [...notes];
 
-        // 文件夹过滤
-        if (folderNoteIds && Array.isArray(folderNoteIds) && folderNoteIds.length > 0) {
-          result = result.filter((note) => note.id && folderNoteIds.includes(note.id));
+        if (
+          folderNoteIds &&
+          Array.isArray(folderNoteIds) &&
+          folderNoteIds.length > 0
+        ) {
+          result = result.filter(
+            (note) => note.id && folderNoteIds.includes(note.id)
+          );
         }
 
-        // 搜索过滤
         if (searchQuery) {
           const lowerQuery = searchQuery.toLowerCase();
           result = result.filter((note) => {
@@ -219,41 +236,36 @@ export function AppSidebar() {
           });
         }
 
-        // 标签过滤
         if (selectedTags.length > 0) {
-          const supabase = createClient();
-          const selectedNoteId = new Set<string>();
-          for (const selectedTag of selectedTags) {
-            const { data } = await supabase
-              .from('note_tags')
-              .select('note_id')
-              .eq('tag_id', selectedTag);
-            for (const item of data || []) {
-              selectedNoteId.add(item.note_id);
-            }
+          const taggedNoteIds = await getTaggedNoteIds();
+          if (taggedNoteIds) {
+            result = result.filter(
+              (note) => note.id && taggedNoteIds.has(note.id)
+            );
           }
-          result = result.filter((note) => note.id && selectedNoteId.has(note.id));
         }
+
         setFilteredNotes(result);
       } catch (error) {
-        console.error('过滤笔记时出错:', error);
+        console.error("过滤笔记时出错:", error);
         setFilteredNotes([]);
       } finally {
         setLoading(false);
       }
-    };
+    }, 150);
 
-    filterNotes();
-  }, [notes, folderNoteIds, searchQuery, selectedTags]);
+    return () => clearTimeout(timeoutId);
+  }, [notes, folderNoteIds, searchQuery, selectedTags, getTaggedNoteIds]);
 
+  const handleCreateNote = () => {
+    setShowNameDialog(true);
+  };
 
-  // 创建新笔记
-  const handleCreateNote = async () => {
+  const handleConfirmCreateNote = async (noteName: string) => {
     if (useLocalStorage) {
-      const newNote = createLocalNote({ title: "未命名笔记", content: "" });
+      const newNote = createLocalNote({ title: noteName, content: "" });
       setNotes(getLocalNotes());
       router.push(`/dashboard/notes/${newNote.id}`);
-      router.refresh();
     } else {
       const supabase = createClient();
       if (!supabase) {
@@ -272,7 +284,7 @@ export function AppSidebar() {
         const { data, error } = await supabase
           .from("notes")
           .insert({
-            title: "未命名笔记",
+            title: noteName,
             content: "",
             user_id: userId,
             updated_at: new Date().toISOString(),
@@ -289,7 +301,6 @@ export function AppSidebar() {
         if (data) {
           setNotes((prev) => [data as Note, ...prev]);
           router.push(`/dashboard/notes/${data.id}`);
-          router.refresh();
         }
       } catch (error) {
         console.error("Unexpected error:", error);
@@ -301,7 +312,6 @@ export function AppSidebar() {
     }
   };
 
-  // 创建新标签
   const handleCreateTag = async (tagName: string) => {
     if (useLocalStorage) {
       createLocalTag(tagName);
@@ -334,7 +344,6 @@ export function AppSidebar() {
     }
   };
 
-  // 删除标签
   const handleDeleteTag = async (tagId: string) => {
     if (useLocalStorage) {
       deleteLocalTag(tagId);
@@ -362,17 +371,12 @@ export function AppSidebar() {
     }
   };
 
-  // 切换标签过滤
   const toggleTagFilter = (tagId: string) => {
     setSelectedTags((prev) =>
-      prev.includes(tagId)
-        ? prev.filter((t) => t !== tagId)
-        : [...prev, tagId]
+      prev.includes(tagId) ? prev.filter((t) => t !== tagId) : [...prev, tagId]
     );
-    // console.log(notes);
   };
 
-  // 开始编辑标题
   const handleStartEdit = (e: React.MouseEvent, note: Note) => {
     e.preventDefault();
     e.stopPropagation();
@@ -380,7 +384,6 @@ export function AppSidebar() {
     setEditingTitle(note.title || "");
   };
 
-  // 保存标题
   const handleSaveTitle = async (noteId: string) => {
     const trimmedTitle = editingTitle.trim() || "未命名笔记";
 
@@ -405,10 +408,10 @@ export function AppSidebar() {
         prev.map((n) =>
           n.id === noteId
             ? {
-              ...n,
-              title: trimmedTitle,
-              updated_at: new Date().toISOString(),
-            }
+                ...n,
+                title: trimmedTitle,
+                updated_at: new Date().toISOString(),
+              }
             : n
         )
       );
@@ -416,16 +419,13 @@ export function AppSidebar() {
 
     setEditingId(null);
     setEditingTitle("");
-    router.refresh();
   };
 
-  // 取消编辑
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditingTitle("");
   };
 
-  // 处理键盘事件
   const handleKeyDown = (e: React.KeyboardEvent, noteId: string) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -435,7 +435,6 @@ export function AppSidebar() {
     }
   };
 
-  // 处理登录/登出
   const handleLogin = async () => {
     if (loginStatus.startsWith("已登录")) {
       const supabase = createClient();
@@ -452,14 +451,12 @@ export function AppSidebar() {
     }
   };
 
-  // 导航时关闭移动端侧边栏
   const handleNavClick = () => {
     if (isMobile) {
       setOpenMobile(false);
     }
   };
 
-  // 删除笔记
   const handleDeleteNote = async (noteId: string) => {
     if (useLocalStorage) {
       const notes = getLocalNotes().filter((n) => n.id !== noteId);
@@ -475,7 +472,6 @@ export function AppSidebar() {
       }
       setNotes((prev) => prev.filter((n) => n.id !== noteId));
     }
-    router.refresh();
   };
 
   return (
@@ -569,6 +565,12 @@ export function AppSidebar() {
           </p>
         )}
       </SidebarFooter>
+
+      <NoteNameDialog
+        open={showNameDialog}
+        onOpenChange={setShowNameDialog}
+        onConfirm={handleConfirmCreateNote}
+      />
     </Sidebar>
   );
 }

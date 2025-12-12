@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   Send,
   Sparkles,
@@ -42,11 +42,12 @@ export default function AIChatPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const useLocalStorage = !isSupabaseConfigured();
 
-  // 加载笔记
   useEffect(() => {
+    let isMounted = true;
+
     async function loadNotes() {
       if (useLocalStorage) {
-        setNotes(getLocalNotes());
+        if (isMounted) setNotes(getLocalNotes());
       } else {
         const supabase = createClient();
         if (!supabase) return;
@@ -60,20 +61,33 @@ export default function AIChatPage() {
           .eq("user_id", userId)
           .order("updated_at", { ascending: false });
 
-        if (data) {
+        if (data && isMounted) {
           setNotes(data as Note[]);
         }
       }
     }
+
     loadNotes();
+
+    return () => {
+      isMounted = false;
+    };
   }, [useLocalStorage]);
 
-  // 滚动到底部
+  const processedNotes = useMemo(() => {
+    return notes.map((n) => ({
+      id: n.id,
+      title: n.title,
+      content: n.content?.replace(/<[^>]*>/g, "").slice(0, 500) || "",
+    }));
+  }, [notes]);
+
+  // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 发送消息
+  // Send message
   const handleSend = useCallback(async () => {
     if (!input.trim() || isLoading) return;
 
@@ -93,11 +107,7 @@ export default function AIChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: userMessage.content,
-          notes: notes.map((n) => ({
-            id: n.id,
-            title: n.title,
-            content: n.content?.replace(/<[^>]*>/g, "").slice(0, 500) || "",
-          })),
+          notes: processedNotes,
         }),
       });
 
@@ -125,14 +135,14 @@ export default function AIChatPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, notes]);
+  }, [input, isLoading, processedNotes]);
 
-  // 清空对话
+  // Clear conversation
   const handleClear = () => {
     setMessages([]);
   };
 
-  // 处理键盘事件
+  // Handle keyboard events
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -142,7 +152,7 @@ export default function AIChatPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden">
-      {/* 顶部标题栏 */}
+      {/* Top title bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-border shrink-0 gap-3 sm:gap-0">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
@@ -182,7 +192,7 @@ export default function AIChatPage() {
                 支持智能检索、内容摘要和信息聚合，让 AI 帮您整理和分析笔记
               </p>
 
-              {/* 功能卡片 */}
+              {/* Feature cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 w-full max-w-2xl mb-6 md:mb-8 px-2">
                 <Card className="text-left">
                   <CardContent className="p-3 md:p-4">
@@ -221,7 +231,7 @@ export default function AIChatPage() {
 
               <div className="text-sm text-muted-foreground px-2">
                 <p className="mb-3">试试这些问题：</p>
-                {/* 建议按钮 */}
+                {/* Suggestion buttons */}
                 <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 justify-center">
                   {[
                     "帮我总结所有笔记的核心内容",
@@ -259,7 +269,7 @@ export default function AIChatPage() {
                     {message.content}
                   </p>
 
-                  {/* 相关笔记 */}
+                  {/* Related notes */}
                   {message.relatedNotes && message.relatedNotes.length > 0 && (
                     <div className="mt-3 md:mt-4 pt-2 md:pt-3 border-t border-border/50">
                       <p className="text-xs font-medium mb-2 opacity-70">
@@ -297,7 +307,7 @@ export default function AIChatPage() {
             ))
           )}
 
-          {/* 加载状态 */}
+          {/* Loading state */}
           {isLoading && (
             <div className="flex justify-start">
               <div className="bg-muted rounded-2xl rounded-tl-sm px-3 md:px-4 py-2 md:py-3">
@@ -309,12 +319,12 @@ export default function AIChatPage() {
             </div>
           )}
 
-          {/* 滚动锚点 */}
+          {/* Scroll anchor */}
           <div ref={messagesEndRef} />
         </div>
       </div>
 
-      {/* 输入区域 */}
+      {/* Input area */}
       <div className="border-t border-border px-4 md:px-6 py-3 md:py-4 shrink-0">
         <div className="max-w-3xl mx-auto">
           <div className="flex gap-2 md:gap-3">

@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Sparkles, Search, Loader2, FileText, AlertCircle } from "lucide-react";
 import {
   Dialog,
@@ -37,14 +37,19 @@ export function AISearchDialog() {
   const [error, setError] = useState<string | null>(null);
   const useLocalStorage = !isSupabaseConfigured();
 
-  // 加载笔记数据
   useEffect(() => {
+    if (!open) return;
+
+    let isMounted = true;
+
     async function loadNotes() {
       setError(null);
       try {
         if (useLocalStorage) {
-          const localNotes = getLocalNotes();
-          setNotes(localNotes);
+          if (isMounted) {
+            const localNotes = getLocalNotes();
+            setNotes(localNotes);
+          }
         } else {
           const supabase = createClient();
           if (!supabase) {
@@ -68,7 +73,7 @@ export function AISearchDialog() {
             return;
           }
 
-          if (data) {
+          if (data && isMounted) {
             setNotes(data as Note[]);
           }
         }
@@ -78,10 +83,20 @@ export function AISearchDialog() {
       }
     }
 
-    if (open) {
-      loadNotes();
-    }
+    loadNotes();
+
+    return () => {
+      isMounted = false;
+    };
   }, [open, useLocalStorage]);
+
+  const processedNotes = useMemo(() => {
+    return notes.map((n) => ({
+      id: n.id,
+      title: n.title,
+      content: n.content,
+    }));
+  }, [notes]);
 
   const handleSearch = async () => {
     if (!query.trim() || loading) return;
@@ -99,11 +114,7 @@ export function AISearchDialog() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: currentQuery,
-          notes: notes.map((n) => ({
-            id: n.id,
-            title: n.title,
-            content: n.content,
-          })),
+          notes: processedNotes,
         }),
       });
 

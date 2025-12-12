@@ -47,8 +47,9 @@ export default function DashboardPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // 加载数据
   useEffect(() => {
+    let isMounted = true;
+
     async function loadData() {
       setLoading(true);
 
@@ -67,17 +68,17 @@ export default function DashboardPage() {
           }
         });
 
-        // console.log("Note IDs in folders (local):", noteIdsInFolders);
-
         // 过滤掉已经在文件夹中的笔记
         const filteredNotes = localNotes.filter(
           (note) => note.id && !noteIdsInFolders.has(note.id)
         );
 
-        setAllNotes(filteredNotes);
-        setTotalPages(Math.ceil(filteredNotes.length / NOTES_PER_PAGE) || 1);
-        setNotes(filteredNotes.slice(0, NOTES_PER_PAGE));
-        setFolders(localFolders.slice(0, 6));
+        if (isMounted) {
+          setAllNotes(filteredNotes);
+          setTotalPages(Math.ceil(filteredNotes.length / NOTES_PER_PAGE) || 1);
+          setNotes(filteredNotes.slice(0, NOTES_PER_PAGE));
+          setFolders(localFolders.slice(0, 6));
+        }
       } else {
         const supabase = createClient();
         if (supabase) {
@@ -117,19 +118,27 @@ export default function DashboardPage() {
               (note) => note.id && !noteIdsInFolders.has(note.id)
             );
 
-            setAllNotes(filteredNotes);
-            setTotalPages(
-              Math.ceil(filteredNotes.length / NOTES_PER_PAGE) || 1
-            );
-            setNotes(filteredNotes.slice(0, NOTES_PER_PAGE));
-            setFolders(allFolders);
+            if (isMounted) {
+              setAllNotes(filteredNotes);
+              setTotalPages(
+                Math.ceil(filteredNotes.length / NOTES_PER_PAGE) || 1
+              );
+              setNotes(filteredNotes.slice(0, NOTES_PER_PAGE));
+              setFolders(allFolders);
+            }
           }
         }
       }
-      setLoading(false);
+      if (isMounted) {
+        setLoading(false);
+      }
     }
 
     loadData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [useLocalStorage]);
 
   useEffect(() => {
@@ -266,9 +275,7 @@ export default function DashboardPage() {
     }
   };
 
-  // 处理拖拽放置
   const handleDrop = async (e: React.DragEvent, folderId: string) => {
-    // 只有在正在拖拽笔记时才处理
     if (!draggingNoteId) {
       return;
     }
@@ -279,29 +286,23 @@ export default function DashboardPage() {
 
     if (!noteId) return;
 
-    // 找到目标文件夹
     const targetFolder = folders.find((f) => f.id === folderId);
     if (!targetFolder) return;
 
-    // 找到被拖拽的笔记
     const draggedNote = notes.find((n) => n.id === noteId);
     if (!draggedNote) return;
 
     if (useLocalStorage) {
-      // 本地存储模式
       const currentNoteIds = targetFolder.notes_id
         ? targetFolder.notes_id.split(",").filter((id) => id.trim() !== "")
         : [];
 
-      // 检查是否已经存在
       if (!currentNoteIds.includes(noteId)) {
         const newNoteIds = [...currentNoteIds, noteId].join(",");
         const updatedFolder = { ...targetFolder, notes_id: newNoteIds };
 
-        // 更新本地存储
         updateLocalFolder(updatedFolder);
 
-        // 更新状态
         setFolders((prev) =>
           prev.map((f) => (f.id === folderId ? updatedFolder : f))
         );
@@ -309,7 +310,6 @@ export default function DashboardPage() {
         const updatedAllNotes = allNotes.filter((n) => n.id !== noteId);
         setAllNotes(updatedAllNotes);
         setTotalPages(Math.ceil(updatedAllNotes.length / NOTES_PER_PAGE) || 1);
-        // 如果当前页没有笔记了，回到上一页
         if (
           currentPage > 1 &&
           (currentPage - 1) * NOTES_PER_PAGE >= updatedAllNotes.length
@@ -318,7 +318,6 @@ export default function DashboardPage() {
         }
       }
     } else {
-      // Supabase 模式
       const supabase = createClient();
       if (!supabase) return;
 
@@ -332,11 +331,9 @@ export default function DashboardPage() {
         ? targetFolder.notes_id.split(",").filter((id) => id.trim() !== "")
         : [];
 
-      // 检查是否已经存在
       if (!currentNoteIds.includes(noteId)) {
         const newNoteIds = [...currentNoteIds, noteId].join(",");
 
-        // 更新数据库
         const { data, error } = await supabase
           .from("folders")
           .update({
@@ -355,7 +352,6 @@ export default function DashboardPage() {
         }
 
         if (data) {
-          // 更新文件夹状态
           setFolders((prev) =>
             prev.map((f) => (f.id === folderId ? (data as Folder) : f))
           );
