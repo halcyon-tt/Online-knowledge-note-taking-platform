@@ -67,7 +67,7 @@ export default function DashboardPage() {
           }
         });
 
-        console.log("Note IDs in folders (local):", noteIdsInFolders);
+        // console.log("Note IDs in folders (local):", noteIdsInFolders);
 
         // 过滤掉已经在文件夹中的笔记
         const filteredNotes = localNotes.filter(

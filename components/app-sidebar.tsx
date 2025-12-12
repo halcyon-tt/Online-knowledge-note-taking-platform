@@ -98,7 +98,7 @@ export function AppSidebar() {
         return;
       }
       try {
-        console.log("Fetching note IDs for folder:", currentFolderId);
+        // console.log("Fetching note IDs for folder:", currentFolderId);
         const { data, error } = await supabase
           .from("folders")
           .select("notes_id")

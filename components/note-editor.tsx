@@ -262,7 +262,6 @@ export default function Tiptap({ initialContent = "", onChange, noteId }: Tiptap
       const md = new MarkdownIt();
 
       const html = md.render(e.clipboardData?.getData('text/plain') || "")
-      console.log(html);
       editor?.chain().focus().insertContent(html).run()
     },
     extensions: [
@@ -325,15 +324,15 @@ export default function Tiptap({ initialContent = "", onChange, noteId }: Tiptap
   const toggleItalic = () => editor?.chain().focus().toggleItalic().run();
   const toggleStrike = () => editor?.chain().focus().toggleStrike().run();
   const toggleHeading1 = () => {
-    console.log("设置一级标题");
+    // console.log("设置一级标题");
     editor?.chain().focus().toggleHeading({ level: 1 }).run();
   };
   const toggleHeading2 = () => {
-    console.log("设置二级标题");
+    // console.log("设置二级标题");
     editor?.chain().focus().toggleHeading({ level: 2 }).run();
   };
   const toggleHeading3 = () => {
-    console.log("设置三级标题");
+    // console.log("设置三级标题");
     editor?.chain().focus().toggleHeading({ level: 3 }).run();
   };
   const toggleHeading4 = () =>
