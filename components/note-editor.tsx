@@ -257,12 +257,21 @@ export default function Tiptap({ initialContent = "", onChange, noteId }: Tiptap
   // 初始化编辑器
   const editor = useEditor({
     immediatelyRender: false,
-    onPaste: (e) => {
-      e.preventDefault()
-      const md = new MarkdownIt();
+    editorProps: {
+      handlePaste(view, event) {
+        event.preventDefault()
+        event.stopPropagation(); // ⚠️ 关键：阻断传播，否则会继续触发默认 paste
+        const md = new MarkdownIt()
 
-      const html = md.render(e.clipboardData?.getData('text/plain') || "")
-      editor?.chain().focus().insertContent(html).run()
+        const html = md.render(event.clipboardData?.getData('text/plain') || "")
+        editor?.commands.setContent(editor.getHTML() + html)
+
+        return true  // 阻止默认 paste!
+      },
+      attributes: {
+        class:
+          "prose prose-lg dark:prose-invert max-w-none focus:outline-none min-h-[600px] p-6 prose-headings:text-gray-100 prose-p:text-gray-300 prose-strong:text-gray-100 prose-em:text-gray-300 prose-code:text-green-400 prose-blockquote:text-gray-400 prose-ul:text-gray-300 prose-ol:text-gray-300 prose-li:text-gray-300",
+      },
     },
     extensions: [
       StarterKit.configure({
@@ -310,13 +319,7 @@ export default function Tiptap({ initialContent = "", onChange, noteId }: Tiptap
       if (onChange) {
         onChange(html);
       }
-    },
-    editorProps: {
-      attributes: {
-        class:
-          "prose prose-lg dark:prose-invert max-w-none focus:outline-none min-h-[600px] p-6 prose-headings:text-gray-100 prose-p:text-gray-300 prose-strong:text-gray-100 prose-em:text-gray-300 prose-code:text-green-400 prose-blockquote:text-gray-400 prose-ul:text-gray-300 prose-ol:text-gray-300 prose-li:text-gray-300",
-      },
-    },
+    }
   });
 
   // 工具栏按钮功能
