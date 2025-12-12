@@ -9,6 +9,7 @@ import FontFamily from "@tiptap/extension-font-family";
 import Image from "@tiptap/extension-image";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import "markdown-it";
 
 import {
   Bold,
@@ -39,6 +40,7 @@ import { Button } from "@/components/ui/button";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { getLocalNotes } from "@/lib/local-storage";
 import { redirect, useRouter } from "next/navigation";
+import MarkdownIt from "markdown-it";
 
 interface TiptapProps {
   initialContent?: string;
@@ -255,6 +257,14 @@ export default function Tiptap({ initialContent = "", onChange, noteId }: Tiptap
   // 初始化编辑器
   const editor = useEditor({
     immediatelyRender: false,
+    onPaste: (e) => {
+      e.preventDefault()
+      const md = new MarkdownIt();
+
+      const html = md.render(e.clipboardData?.getData('text/plain') || "")
+      console.log(html);
+      editor?.chain().focus().insertContent(html).run()
+    },
     extensions: [
       StarterKit.configure({
         heading: {
