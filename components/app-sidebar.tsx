@@ -183,6 +183,13 @@ export function AppSidebar() {
     loadNotes();
   }, [loadNotes]);
 
+  useEffect(() => {
+    // 当路由变化时，如果当前在 dashboard 首页或文件夹页面，重新加载笔记
+    if (pathname === "/dashboard" || pathname.startsWith("/dashboard/folder")) {
+      loadNotes();
+    }
+  }, [pathname, loadNotes]);
+
   const getTaggedNoteIds = useCallback(async () => {
     if (selectedTags.length === 0) return null;
 

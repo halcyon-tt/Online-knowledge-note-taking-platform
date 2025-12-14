@@ -1,10 +1,11 @@
 "use client";
 
+import type React from "react";
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
-import Placeholder from "@tiptap/extension-placeholder";
 import FontFamily from "@tiptap/extension-font-family";
 import Image from "@tiptap/extension-image";
 import ReactMarkdown from "react-markdown";
@@ -39,7 +40,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { getLocalNotes } from "@/lib/local-storage";
-import { redirect, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import MarkdownIt from "markdown-it";
 
 interface TiptapProps {
@@ -49,7 +50,10 @@ interface TiptapProps {
 }
 
 // 图片插入对话框组件
-function ImageInsertDialog({ editor, onClose }: {
+function ImageInsertDialog({
+  editor,
+  onClose,
+}: {
   editor: any;
   onClose: () => void;
 }) {
@@ -188,7 +192,7 @@ function ImageInsertDialog({ editor, onClose }: {
               {previewUrl ? (
                 <div className="relative mb-4">
                   <img
-                    src={previewUrl}
+                    src={previewUrl || "/placeholder.svg"}
                     alt="预览"
                     className="max-h-48 mx-auto rounded-lg"
                   />
@@ -213,16 +217,13 @@ function ImageInsertDialog({ editor, onClose }: {
                 type="button"
                 variant="outline"
                 onClick={handleSelectFile}
-                className="w-full"
+                className="w-full bg-transparent"
               >
                 {previewUrl ? "重新选择" : "选择图片文件"}
               </Button>
 
               {previewUrl && (
-                <Button
-                  onClick={insertPreviewImage}
-                  className="w-full mt-2"
-                >
+                <Button onClick={insertPreviewImage} className="w-full mt-2">
                   插入图片
                 </Button>
               )}
@@ -240,7 +241,11 @@ function ImageInsertDialog({ editor, onClose }: {
   );
 }
 
-export default function Tiptap({ initialContent = "", onChange, noteId }: TiptapProps) {
+export default function Tiptap({
+  initialContent = "",
+  onChange,
+  noteId,
+}: TiptapProps) {
   const [content, setContent] = useState(initialContent);
   const [isPreview, setIsPreview] = useState(false);
   const [wordCount, setWordCount] = useState(0);
@@ -259,14 +264,16 @@ export default function Tiptap({ initialContent = "", onChange, noteId }: Tiptap
     immediatelyRender: false,
     editorProps: {
       handlePaste(view, event) {
-        event.preventDefault()
+        event.preventDefault();
         event.stopPropagation(); // ⚠️ 关键：阻断传播，否则会继续触发默认 paste
-        const md = new MarkdownIt()
+        const md = new MarkdownIt();
 
-        const html = md.render(event.clipboardData?.getData('text/plain') || "")
-        editor?.commands.setContent(editor.getHTML() + html)
+        const html = md.render(
+          event.clipboardData?.getData("text/plain") || ""
+        );
+        editor?.commands.setContent(editor.getHTML() + html);
 
-        return true  // 阻止默认 paste!
+        return true; // 阻止默认 paste!
       },
       attributes: {
         class:
@@ -319,7 +326,7 @@ export default function Tiptap({ initialContent = "", onChange, noteId }: Tiptap
       if (onChange) {
         onChange(html);
       }
-    }
+    },
   });
 
   // 工具栏按钮功能
@@ -407,9 +414,14 @@ export default function Tiptap({ initialContent = "", onChange, noteId }: Tiptap
       .replace(/<h6>(.*?)<\/h6>/g, "###### $1\n\n")
       // 处理列表（需要区分有序和无序）
       .replace(/<ul>([\s\S]*?)<\/ul>/g, (match, content) =>
-        content.replace(/<li>(.*?)<\/li>/g, "- $1\n"))
+        content.replace(/<li>(.*?)<\/li>/g, "- $1\n")
+      )
       .replace(/<ol>([\s\S]*?)<\/ol>/g, (match, content) =>
-        content.replace(/<li>(.*?)<\/li>/g, (match: any, item: any, index: number) => `${index + 1}. ${item}\n`))
+        content.replace(
+          /<li>(.*?)<\/li>/g,
+          (match: any, item: any, index: number) => `${index + 1}. ${item}\n`
+        )
+      )
       // 处理其他块级元素
       .replace(/<blockquote>(.*?)<\/blockquote>/g, "> $1")
       .replace(/<p>(.*?)<\/p>/g, "$1\n\n")
@@ -543,6 +555,10 @@ export default function Tiptap({ initialContent = "", onChange, noteId }: Tiptap
   // 删除笔记
   const handleDeleteNote = async (noteId: string | undefined) => {
     if (!noteId) return;
+
+    const confirmed = window.confirm("确定要删除这篇笔记吗？");
+    if (!confirmed) return;
+
     if (useLocalStorage) {
       const notes = getLocalNotes().filter((n) => n.id !== noteId);
       localStorage.setItem("notes", JSON.stringify(notes));
@@ -555,7 +571,7 @@ export default function Tiptap({ initialContent = "", onChange, noteId }: Tiptap
         return;
       }
     }
-    redirect("/dashboard");
+    router.push("/dashboard");
   };
 
   return (
@@ -782,7 +798,9 @@ export default function Tiptap({ initialContent = "", onChange, noteId }: Tiptap
                 导出 Markdown
               </button>
               <button
-                onClick={() => { handleDeleteNote(noteId) }}
+                onClick={() => {
+                  handleDeleteNote(noteId);
+                }}
                 className="px-2 md:px-3 py-1 text-xs md:text-sm bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-white-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors duration-200 border border-blue-200 dark:border-blue-800"
               >
                 删除笔记
@@ -881,4 +899,3 @@ export default function Tiptap({ initialContent = "", onChange, noteId }: Tiptap
     </div>
   );
 }
-
