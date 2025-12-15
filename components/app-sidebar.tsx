@@ -3,11 +3,12 @@
 import type React from "react";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Home, Sparkles } from "lucide-react";
+import { Plus, Home, Sparkles, LogOut, LogIn } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { getUserId } from "@/lib/auth-utils";
+
 import {
   createLocalNote,
   getLocalNotes,
@@ -37,6 +38,7 @@ import type { Note, Tag as TagType } from "@/types/note";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCurrentFolderIdStore } from "@/lib/store/folders";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -50,7 +52,6 @@ export function AppSidebar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [tags, setTags] = useState<TagType[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [loginStatus, setLoginStatus] = useState("登录/注册");
   const [folderNoteIds, setFolderNoteIds] = useState<string[] | null>(null);
   const [filteredNotes, setFilteredNotes] = useState<Note[]>([]);
   const [showNameDialog, setShowNameDialog] = useState(false);
@@ -58,26 +59,8 @@ export function AppSidebar() {
   const isMobile = useIsMobile();
   const { currentFolderId, setCurrentFolderId } = useCurrentFolderIdStore();
 
-  useEffect(() => {
-    async function checkLoginStatus() {
-      if (!useLocalStorage) {
-        const supabase = createClient();
-        if (supabase) {
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
-          if (user) {
-            setLoginStatus(
-              `已登录: ${user.user_metadata?.username || user.email || "用户"}`
-            );
-          } else {
-            setLoginStatus("登录/注册");
-          }
-        }
-      }
-    }
-    checkLoginStatus();
-  }, [useLocalStorage]);
+  const { user, signOut, loading: authLoading } = useAuth();
+  const [logoutLoading, setLogoutLoading] = useState(false);
 
   useEffect(() => {
     async function fetchFolderNoteIds() {
@@ -91,9 +74,7 @@ export function AppSidebar() {
       }
       const userId = await getUserId();
       if (!userId) {
-        alert("请先登录");
         setFolderNoteIds(null);
-        router.push("/login");
         return;
       }
       try {
@@ -415,10 +396,10 @@ export function AppSidebar() {
         prev.map((n) =>
           n.id === noteId
             ? {
-                ...n,
-                title: trimmedTitle,
-                updated_at: new Date().toISOString(),
-              }
+              ...n,
+              title: trimmedTitle,
+              updated_at: new Date().toISOString(),
+            }
             : n
         )
       );
@@ -442,17 +423,30 @@ export function AppSidebar() {
     }
   };
 
-  const handleLogin = async () => {
-    if (loginStatus.startsWith("已登录")) {
-      const supabase = createClient();
-      if (supabase) {
-        await supabase.auth.signOut();
-        await supabase.auth.signOutWithOAuth();
-        setLoginStatus("登录/注册");
+  const handleLogout = async () => {
+    if (logoutLoading) return;
+
+    setLogoutLoading(true);
+    try {
+      await signOut();
+      // 重定向到登录页面
+      router.push('/login');
+      // 刷新页面以确保状态完全清除
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
       }
-    } else {
-      router.push("/login");
+    } catch (error) {
+      console.error('退出登录失败:', error);
+    } finally {
+      setLogoutLoading(false);
+      if (isMobile) {
+        setOpenMobile(false);
+      }
     }
+  };
+
+  const handleLogin = () => {
+    router.push("/login");
     if (isMobile) {
       setOpenMobile(false);
     }
@@ -479,6 +473,21 @@ export function AppSidebar() {
       }
       setNotes((prev) => prev.filter((n) => n.id !== noteId));
     }
+  };
+
+  // 获取用户显示名称
+  const getUserDisplayName = () => {
+    if (!user) return '';
+
+    const username = user.user_metadata?.username;
+    const email = user.email;
+
+    if (username) return username;
+    if (email) {
+      // 只显示邮箱的用户名部分
+      return email.split('@')[0];
+    }
+    return '用户';
   };
 
   return (
@@ -563,9 +572,44 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-border p-4">
-        <Button onClick={handleLogin} className="w-full">
-          {loginStatus}
-        </Button>
+        {authLoading ? (
+          // 加载状态
+          <div className="w-full flex justify-center">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+          </div>
+        ) : user ? (
+          // 已登录状态 - 显示用户信息和退出按钮
+          <div className="space-y-3">
+            <div className="text-sm text-center text-gray-600">
+              当前用户: <span className="font-medium">{getUserDisplayName()}</span>
+            </div>
+            <Button
+              onClick={handleLogout}
+              className="w-full"
+              variant="outline"
+              disabled={logoutLoading}
+            >
+              {logoutLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2"></div>
+                  退出中...
+                </>
+              ) : (
+                <>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  退出登录
+                </>
+              )}
+            </Button>
+          </div>
+        ) : (
+          // 未登录状态 - 显示登录按钮
+          <Button onClick={handleLogin} className="w-full">
+            <LogIn className="h-4 w-4 mr-2" />
+            登录/注册
+          </Button>
+        )}
+
         {useLocalStorage && (
           <p className="text-xs text-yellow-600 mt-2 text-center">
             本地存储模式
