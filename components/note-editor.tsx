@@ -259,21 +259,23 @@ export default function Tiptap({
 
   const router = useRouter();
 
+
   // 初始化编辑器
   const editor = useEditor({
     immediatelyRender: false,
     editorProps: {
       handlePaste(view, event) {
         event.preventDefault();
-        event.stopPropagation(); // ⚠️ 关键：阻断传播，否则会继续触发默认 paste
+        event.stopPropagation();
+
         const md = new MarkdownIt();
+        const plainText = event.clipboardData?.getData("text/plain") || "";
+        const html = md.render(plainText);
 
-        const html = md.render(
-          event.clipboardData?.getData("text/plain") || ""
-        );
-        editor?.commands.setContent(editor.getHTML() + html);
+        // 使用 insertContent 在光标处插入内容
+        editor?.commands.insertContent(html);
 
-        return true; // 阻止默认 paste!
+        return true;
       },
       attributes: {
         class:
