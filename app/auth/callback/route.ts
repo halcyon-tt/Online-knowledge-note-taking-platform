@@ -13,5 +13,5 @@ export async function GET(request: Request) {
     }
 
     // 重定向到主页面
-    return NextResponse.redirect(new URL("/main", requestUrl.origin));
+    return NextResponse.redirect(new URL("/", requestUrl.origin));
 }
