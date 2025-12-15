@@ -249,6 +249,56 @@ export function AppSidebar() {
     setShowNameDialog(true);
   };
 
+  // const handleConfirmCreateNote = async (noteName: string) => {
+  //   if (useLocalStorage) {
+  //     const newNote = createLocalNote({ title: noteName, content: "" });
+  //     setNotes(getLocalNotes());
+  //     router.push(`/dashboard/notes/${newNote.id}`);
+  //   } else {
+  //     const supabase = createClient();
+  //     if (!supabase) {
+  //       console.error("No Supabase client");
+  //       return;
+  //     }
+
+  //     const userId = await getUserId();
+  //     if (!userId) {
+  //       alert("请先登录");
+  //       router.push("/login");
+  //       return;
+  //     }
+
+  //     try {
+  //       const { data, error } = await supabase
+  //         .from("notes")
+  //         .insert({
+  //           title: noteName,
+  //           content: "",
+  //           user_id: userId,
+  //           updated_at: new Date().toISOString(),
+  //         })
+  //         .select()
+  //         .single();
+
+  //       if (error) {
+  //         console.error("Error creating note:", error);
+  //         alert("创建笔记失败: " + error.message);
+  //         return;
+  //       }
+
+  //       if (data) {
+  //         setNotes((prev) => [data as Note, ...prev]);
+  //         router.push(`/dashboard/notes/${data.id}`);
+  //       }
+  //     } catch (error) {
+  //       console.error("Unexpected error:", error);
+  //       alert("创建笔记时发生未知错误");
+  //     }
+  //   }
+  //   if (isMobile) {
+  //     setOpenMobile(false);
+  //   }
+  // };
   const handleConfirmCreateNote = async (noteName: string) => {
     if (useLocalStorage) {
       const newNote = createLocalNote({ title: noteName, content: "" });
@@ -258,30 +308,37 @@ export function AppSidebar() {
       const supabase = createClient();
       if (!supabase) {
         console.error("No Supabase client");
-        return;
-      }
-
-      const userId = await getUserId();
-      if (!userId) {
-        alert("请先登录");
-        router.push("/login");
+        alert("系统错误：无法连接到数据库");
         return;
       }
 
       try {
+        // 获取当前用户
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+          alert("请先登录");
+          router.push("/login");
+          return;
+        }
+
+        console.log('创建笔记，用户ID:', user.id);
+
+        // 直接创建笔记（不检查用户记录是否存在）
         const { data, error } = await supabase
           .from("notes")
           .insert({
             title: noteName,
             content: "",
-            user_id: userId,
+            user_id: user.id,
+            created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
           .select()
           .single();
 
         if (error) {
-          console.error("Error creating note:", error);
+          console.error("创建笔记失败:", error);
           alert("创建笔记失败: " + error.message);
           return;
         }
@@ -290,7 +347,7 @@ export function AppSidebar() {
           setNotes((prev) => [data as Note, ...prev]);
           router.push(`/dashboard/notes/${data.id}`);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Unexpected error:", error);
         alert("创建笔记时发生未知错误");
       }

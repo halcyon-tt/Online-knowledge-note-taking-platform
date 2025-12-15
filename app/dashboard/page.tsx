@@ -194,6 +194,32 @@ export default function DashboardPage() {
   }, []);
 
   // 创建笔记
+  // const handleCreateNote = async () => {
+  //   if (useLocalStorage) {
+  //     const newNote = createLocalNote({ title: "未命名笔记", content: "" });
+  //     router.push(`/dashboard/notes/${newNote.id}`);
+  //   } else {
+  //     const supabase = createClient();
+  //     if (!supabase) return;
+
+  //     const userId = await getUserId();
+  //     if (!userId) {
+  //       alert("请先登录");
+  //       router.push("/login");
+  //       return;
+  //     }
+
+  //     const { data } = await supabase
+  //       .from("notes")
+  //       .insert({ title: "未命名笔记", content: "", user_id: userId })
+  //       .select()
+  //       .single();
+  //     if (data) {
+  //       router.push(`/dashboard/notes/${data.id}`);
+  //     }
+  //   }
+  // };
+  // 创建笔记（简化版）
   const handleCreateNote = async () => {
     if (useLocalStorage) {
       const newNote = createLocalNote({ title: "未命名笔记", content: "" });
@@ -202,31 +228,83 @@ export default function DashboardPage() {
       const supabase = createClient();
       if (!supabase) return;
 
-      const userId = await getUserId();
-      if (!userId) {
+      // 获取当前用户
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
         alert("请先登录");
         router.push("/login");
         return;
       }
 
+      // 直接创建笔记，不检查用户记录
       const { data } = await supabase
         .from("notes")
-        .insert({ title: "未命名笔记", content: "", user_id: userId })
+        .insert({
+          title: "未命名笔记",
+          content: "",
+          user_id: user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
         .select()
         .single();
+
       if (data) {
         router.push(`/dashboard/notes/${data.id}`);
       }
     }
   };
 
-  // 创建文件夹
+  // 创建文件夹（简化版）
+  // const handleCreateFolder = async () => {
+  //   const name = window.prompt("请输入文件夹名:");
+  //   if (!name) {
+  //     window.alert("文件夹名不能为空");
+  //     return;
+  //   }
+
+  //   if (useLocalStorage) {
+  //     const newFolder = createLocalFolder({ name });
+  //     setFolders((prev) => [newFolder as Folder, ...prev]);
+  //   } else {
+  //     const supabase = createClient();
+  //     if (!supabase) return;
+
+  //     // 获取当前用户
+  //     const { data: { user } } = await supabase.auth.getUser();
+
+  //     if (!user) {
+  //       alert("请先登录");
+  //       router.push("/login");
+  //       return;
+  //     }
+
+  //     // 直接创建文件夹，不检查用户记录
+  //     const { data } = await supabase
+  //       .from("folders")
+  //       .insert({
+  //         name: name.trim(),
+  //         user_id: user.id,
+  //         created_at: new Date().toISOString(),
+  //         updated_at: new Date().toISOString()
+  //       })
+  //       .select()
+  //       .single();
+
+  //     if (data) {
+  //       setFolders((prev) => [data as Folder, ...prev]);
+  //     }
+  //   }
+  // };
+  // 创建文件夹（简化版）
   const handleCreateFolder = async () => {
     const name = window.prompt("请输入文件夹名:");
     if (!name) {
       window.alert("文件夹名不能为空");
       return;
     }
+
     if (useLocalStorage) {
       const newFolder = createLocalFolder({ name });
       setFolders((prev) => [newFolder as Folder, ...prev]);
@@ -234,18 +312,27 @@ export default function DashboardPage() {
       const supabase = createClient();
       if (!supabase) return;
 
-      const userId = await getUserId();
-      if (!userId) {
+      // 获取当前用户
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
         alert("请先登录");
         router.push("/login");
         return;
       }
 
+      // 直接创建文件夹，不检查用户记录
       const { data } = await supabase
         .from("folders")
-        .insert({ name, user_id: userId })
+        .insert({
+          name: name.trim(),
+          user_id: user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
         .select()
         .single();
+
       if (data) {
         setFolders((prev) => [data as Folder, ...prev]);
       }
