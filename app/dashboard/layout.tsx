@@ -11,6 +11,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useCurrentFolderIdStore } from "@/lib/store/folders";
+import { NotesProvider } from '@/contexts/NotesContext';
 
 function MainContent({ children }: { children: React.ReactNode }) {
   const { state } = useSidebar();
@@ -21,7 +22,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
     <div
       className="flex-1 flex flex-col h-screen overflow-hidden transition-all duration-200 ease-linear"
       style={{
-        marginLeft: isMobile ? 0 : isExpanded ? "16rem" : "3rem",
+        marginLeft: isMobile ? 0 : isExpanded ? "16rem" : "0rem",
       }}
     >
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
@@ -46,8 +47,10 @@ export default function DashboardLayout({
   }, [pathname]);
   return (
     <SidebarProvider>
-      <AppSidebar />
-      <MainContent>{children}</MainContent>
+      <NotesProvider>
+        <AppSidebar />
+        <MainContent>{children}</MainContent>
+      </NotesProvider>
     </SidebarProvider>
   );
 }

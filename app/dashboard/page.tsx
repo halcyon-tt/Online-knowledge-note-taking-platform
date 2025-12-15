@@ -28,55 +28,39 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
+import { useNotes } from "@/contexts/NotesContext"; // 新增导入
 
 const NOTES_PER_PAGE = 6;
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [allNotes, setAllNotes] = useState<Note[]>([]); // 存储所有笔记
+
+  // 使用 NotesContext 获取笔记状态
+  const { notes: allContextNotes, loading: notesLoading, addNote } = useNotes();
+
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [folderNoteIds, setFolderNoteIds] = useState<string[] | null>(null);
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
-  const [draggingOverFolderId, setDraggingOverFolderId] = useState<
-    string | null
-  >(null);
+  const [draggingOverFolderId, setDraggingOverFolderId] = useState<string | null>(null);
   const useLocalStorage = !isSupabaseConfigured();
   const { setCurrentFolderId } = useCurrentFolderIdStore();
 
+  // 本地状态用于分页
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [displayNotes, setDisplayNotes] = useState<Note[]>([]);
 
+  // 从所有笔记中过滤出不在文件夹中的笔记
+  const [filteredNotes, setFilteredNotes] = useState<Note[]>([]);
+
+  // 加载文件夹数据
   useEffect(() => {
     let isMounted = true;
 
-    async function loadData() {
-      setLoading(true);
-
+    async function loadFolders() {
       if (useLocalStorage) {
-        const localNotes = getLocalNotes();
         const localFolders = getLocalFolders();
-
-        // 获取所有文件夹中的笔记ID
-        const noteIdsInFolders = new Set<string>();
-        localFolders.forEach((folder) => {
-          if (folder.notes_id) {
-            const ids = folder.notes_id
-              .split(",")
-              .filter((id) => id.trim() !== "");
-            ids.forEach((id) => noteIdsInFolders.add(id));
-          }
-        });
-
-        // 过滤掉已经在文件夹中的笔记
-        const filteredNotes = localNotes.filter(
-          (note) => note.id && !noteIdsInFolders.has(note.id)
-        );
-
         if (isMounted) {
-          setAllNotes(filteredNotes);
-          setTotalPages(Math.ceil(filteredNotes.length / NOTES_PER_PAGE) || 1);
-          setNotes(filteredNotes.slice(0, NOTES_PER_PAGE));
           setFolders(localFolders.slice(0, 6));
         }
       } else {
@@ -84,68 +68,125 @@ export default function DashboardPage() {
         if (supabase) {
           const userId = await getUserId();
           if (userId) {
-            // 同时获取笔记和文件夹
-            const [notesResult, foldersResult] = await Promise.all([
-              supabase
-                .from("notes")
-                .select("*")
-                .eq("user_id", userId)
-                .order("updated_at", { ascending: false }),
-              supabase
-                .from("folders")
-                .select("*")
-                .eq("user_id", userId)
-                .order("updated_at", { ascending: false })
-                .limit(6),
-            ]);
+            const foldersResult = await supabase
+              .from("folders")
+              .select("*")
+              .eq("user_id", userId)
+              .order("updated_at", { ascending: false })
+              .limit(6);
 
-            const fetchedNotes = (notesResult.data as Note[]) || [];
             const allFolders = (foldersResult.data as Folder[]) || [];
-
-            // 获取所有文件夹中的笔记ID
-            const noteIdsInFolders = new Set<string>();
-            allFolders.forEach((folder) => {
-              if (folder.notes_id) {
-                const ids = folder.notes_id
-                  .split(",")
-                  .filter((id) => id.trim() !== "");
-                ids.forEach((id) => noteIdsInFolders.add(id));
-              }
-            });
-
-            // 过滤掉已经在文件夹中的笔记
-            const filteredNotes = fetchedNotes.filter(
-              (note) => note.id && !noteIdsInFolders.has(note.id)
-            );
-
             if (isMounted) {
-              setAllNotes(filteredNotes);
-              setTotalPages(
-                Math.ceil(filteredNotes.length / NOTES_PER_PAGE) || 1
-              );
-              setNotes(filteredNotes.slice(0, NOTES_PER_PAGE));
               setFolders(allFolders);
             }
           }
         }
       }
-      if (isMounted) {
-        setLoading(false);
-      }
     }
 
-    loadData();
+    loadFolders();
 
     return () => {
       isMounted = false;
     };
   }, [useLocalStorage]);
 
+  // 获取文件夹中的笔记ID
   useEffect(() => {
+    async function fetchFolderNoteIds() {
+      const supabase = createClient();
+      if (useLocalStorage) {
+        // 本地存储模式下，从本地获取文件夹数据
+        const localFolders = getLocalFolders();
+        const allNoteIdsInFolders = new Set<string>();
+        localFolders.forEach((folder) => {
+          if (folder.notes_id) {
+            const ids = folder.notes_id
+              .split(",")
+              .filter((id: string) => id && id.trim() !== "");
+            ids.forEach((id) => allNoteIdsInFolders.add(id));
+          }
+        });
+        setFolderNoteIds(Array.from(allNoteIdsInFolders));
+      } else {
+        if (!supabase) {
+          console.error("No Supabase client");
+          setFolderNoteIds(null);
+          return;
+        }
+
+        const userId = await getUserId();
+        if (!userId) {
+          setFolderNoteIds(null);
+          return;
+        }
+
+        try {
+          // 获取所有文件夹的笔记ID
+          const { data, error } = await supabase
+            .from("folders")
+            .select("notes_id")
+            .eq("user_id", userId);
+
+          if (error) {
+            console.error("Error fetching folder note IDs:", error);
+            setFolderNoteIds(null);
+            return;
+          }
+
+          const allNoteIdsInFolders = new Set<string>();
+          (data || []).forEach((folder: any) => {
+            if (folder.notes_id) {
+              const ids = folder.notes_id
+                .split(",")
+                .filter((id: string) => id && id.trim() !== "");
+              ids.forEach((id: string) => allNoteIdsInFolders.add(id));
+            }
+          });
+
+          setFolderNoteIds(Array.from(allNoteIdsInFolders));
+        } catch (error) {
+          console.error("Unexpected error:", error);
+          setFolderNoteIds(null);
+        }
+      }
+    }
+
+    fetchFolderNoteIds();
+  }, [useLocalStorage, folders]); // 添加 folders 作为依赖，当文件夹更新时重新获取
+
+  // 过滤笔记：只显示不在文件夹中的笔记
+  useEffect(() => {
+    if (allContextNotes.length === 0) {
+      setFilteredNotes([]);
+      return;
+    }
+
+    if (!folderNoteIds || folderNoteIds.length === 0) {
+      // 如果没有文件夹或文件夹中没有笔记，显示所有笔记
+      setFilteredNotes([...allContextNotes]);
+    } else {
+      // 过滤掉在文件夹中的笔记
+      const notesNotInFolders = allContextNotes.filter(
+        (note) => note.id && !folderNoteIds.includes(note.id)
+      );
+      setFilteredNotes(notesNotInFolders);
+    }
+  }, [allContextNotes, folderNoteIds]);
+
+  // 分页处理
+  useEffect(() => {
+    if (filteredNotes.length === 0) {
+      setDisplayNotes([]);
+      setTotalPages(1);
+      return;
+    }
+
     const startIndex = (currentPage - 1) * NOTES_PER_PAGE;
     const endIndex = startIndex + NOTES_PER_PAGE;
-    setNotes(allNotes.slice(startIndex, endIndex));
-  }, [currentPage, allNotes]);
+    setDisplayNotes(filteredNotes.slice(startIndex, endIndex));
+    setTotalPages(Math.ceil(filteredNotes.length / NOTES_PER_PAGE) || 1);
+  }, [filteredNotes, currentPage]);
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -194,35 +235,10 @@ export default function DashboardPage() {
   }, []);
 
   // 创建笔记
-  // const handleCreateNote = async () => {
-  //   if (useLocalStorage) {
-  //     const newNote = createLocalNote({ title: "未命名笔记", content: "" });
-  //     router.push(`/dashboard/notes/${newNote.id}`);
-  //   } else {
-  //     const supabase = createClient();
-  //     if (!supabase) return;
-
-  //     const userId = await getUserId();
-  //     if (!userId) {
-  //       alert("请先登录");
-  //       router.push("/login");
-  //       return;
-  //     }
-
-  //     const { data } = await supabase
-  //       .from("notes")
-  //       .insert({ title: "未命名笔记", content: "", user_id: userId })
-  //       .select()
-  //       .single();
-  //     if (data) {
-  //       router.push(`/dashboard/notes/${data.id}`);
-  //     }
-  //   }
-  // };
-  // 创建笔记（简化版）
   const handleCreateNote = async () => {
     if (useLocalStorage) {
       const newNote = createLocalNote({ title: "未命名笔记", content: "" });
+      addNote(newNote); // 使用 Context 的 addNote
       router.push(`/dashboard/notes/${newNote.id}`);
     } else {
       const supabase = createClient();
@@ -238,7 +254,7 @@ export default function DashboardPage() {
       }
 
       // 直接创建笔记，不检查用户记录
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("notes")
         .insert({
           title: "未命名笔记",
@@ -250,57 +266,23 @@ export default function DashboardPage() {
         .select()
         .single();
 
+      if (error) {
+        console.error("创建笔记失败:", error);
+        alert("创建笔记失败: " + error.message);
+        return;
+      }
+
       if (data) {
+        addNote(data as Note); // 使用 Context 的 addNote
         router.push(`/dashboard/notes/${data.id}`);
       }
     }
   };
 
-  // 创建文件夹（简化版）
-  // const handleCreateFolder = async () => {
-  //   const name = window.prompt("请输入文件夹名:");
-  //   if (!name) {
-  //     window.alert("文件夹名不能为空");
-  //     return;
-  //   }
-
-  //   if (useLocalStorage) {
-  //     const newFolder = createLocalFolder({ name });
-  //     setFolders((prev) => [newFolder as Folder, ...prev]);
-  //   } else {
-  //     const supabase = createClient();
-  //     if (!supabase) return;
-
-  //     // 获取当前用户
-  //     const { data: { user } } = await supabase.auth.getUser();
-
-  //     if (!user) {
-  //       alert("请先登录");
-  //       router.push("/login");
-  //       return;
-  //     }
-
-  //     // 直接创建文件夹，不检查用户记录
-  //     const { data } = await supabase
-  //       .from("folders")
-  //       .insert({
-  //         name: name.trim(),
-  //         user_id: user.id,
-  //         created_at: new Date().toISOString(),
-  //         updated_at: new Date().toISOString()
-  //       })
-  //       .select()
-  //       .single();
-
-  //     if (data) {
-  //       setFolders((prev) => [data as Folder, ...prev]);
-  //     }
-  //   }
-  // };
-  // 创建文件夹（简化版）
+  // 创建文件夹
   const handleCreateFolder = async () => {
     const name = window.prompt("请输入文件夹名:");
-    if (!name) {
+    if (!name || name.trim() === "") {
       window.alert("文件夹名不能为空");
       return;
     }
@@ -322,16 +304,23 @@ export default function DashboardPage() {
       }
 
       // 直接创建文件夹，不检查用户记录
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("folders")
         .insert({
           name: name.trim(),
           user_id: user.id,
+          notes_id: "", // 初始为空
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         .select()
         .single();
+
+      if (error) {
+        console.error("创建文件夹失败:", error);
+        alert("创建文件夹失败: " + error.message);
+        return;
+      }
 
       if (data) {
         setFolders((prev) => [data as Folder, ...prev]);
@@ -376,7 +365,7 @@ export default function DashboardPage() {
     const targetFolder = folders.find((f) => f.id === folderId);
     if (!targetFolder) return;
 
-    const draggedNote = notes.find((n) => n.id === noteId);
+    const draggedNote = allContextNotes.find((n) => n.id === noteId);
     if (!draggedNote) return;
 
     if (useLocalStorage) {
@@ -394,15 +383,10 @@ export default function DashboardPage() {
           prev.map((f) => (f.id === folderId ? updatedFolder : f))
         );
 
-        const updatedAllNotes = allNotes.filter((n) => n.id !== noteId);
-        setAllNotes(updatedAllNotes);
-        setTotalPages(Math.ceil(updatedAllNotes.length / NOTES_PER_PAGE) || 1);
-        if (
-          currentPage > 1 &&
-          (currentPage - 1) * NOTES_PER_PAGE >= updatedAllNotes.length
-        ) {
-          setCurrentPage(currentPage - 1);
-        }
+        // 笔记列表会自动通过 Context 更新
+        alert(`笔记已添加到文件夹 ${targetFolder.name}`);
+      } else {
+        alert("该笔记已在此文件夹中");
       }
     } else {
       const supabase = createClient();
@@ -443,18 +427,6 @@ export default function DashboardPage() {
             prev.map((f) => (f.id === folderId ? (data as Folder) : f))
           );
 
-          const updatedAllNotes = allNotes.filter((n) => n.id !== noteId);
-          setAllNotes(updatedAllNotes);
-          setTotalPages(
-            Math.ceil(updatedAllNotes.length / NOTES_PER_PAGE) || 1
-          );
-          if (
-            currentPage > 1 &&
-            (currentPage - 1) * NOTES_PER_PAGE >= updatedAllNotes.length
-          ) {
-            setCurrentPage(currentPage - 1);
-          }
-
           alert(`笔记已添加到文件夹 ${targetFolder.name}`);
         }
       } else {
@@ -472,7 +444,7 @@ export default function DashboardPage() {
     setDraggingOverFolderId(null);
   };
 
-  if (loading) {
+  if (notesLoading) {
     return (
       <div className="p-6 flex items-center justify-center">
         <p className="text-muted-foreground">加载中...</p>
@@ -561,7 +533,7 @@ export default function DashboardPage() {
         ))}
 
         {/* 笔记卡片 */}
-        {notes.map((note) => (
+        {displayNotes.map((note) => (
           <Link
             key={note.id}
             href={`/dashboard/notes/${note.id}`}
@@ -604,7 +576,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {totalPages > 1 && (
+      {totalPages > 1 && filteredNotes.length > 0 && (
         <div className="mt-8">
           <Pagination>
             <PaginationContent>
@@ -653,7 +625,7 @@ export default function DashboardPage() {
 
           {/* 分页信息 */}
           <p className="text-center text-sm text-muted-foreground mt-3">
-            共 {allNotes.length} 篇笔记，第 {currentPage} / {totalPages} 页
+            共 {filteredNotes.length} 篇笔记，第 {currentPage} / {totalPages} 页
           </p>
         </div>
       )}

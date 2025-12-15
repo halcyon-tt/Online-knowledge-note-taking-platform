@@ -39,12 +39,22 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCurrentFolderIdStore } from "@/lib/store/folders";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNotes } from "@/contexts/NotesContext"; // 新增导入
 
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // 使用 NotesContext 管理笔记状态
+  const {
+    notes,           // 从 Context 获取笔记列表
+    loading,         // 从 Context 获取加载状态
+    refreshNotes,    // 从 Context 获取刷新函数
+    addNote,         // 从 Context 获取添加笔记函数
+    updateNote,      // 从 Context 获取更新笔记函数
+    deleteNote       // 从 Context 获取删除笔记函数
+  } = useNotes();
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const useLocalStorage = !isSupabaseConfigured();
@@ -109,67 +119,46 @@ export function AppSidebar() {
     fetchFolderNoteIds();
   }, [currentFolderId, useLocalStorage]);
 
-  const loadNotes = useCallback(async () => {
-    setLoading(true);
-    try {
-      if (useLocalStorage) {
-        setNotes(getLocalNotes());
-        setTags(getLocalTags());
-      } else {
-        const supabase = createClient();
-        if (!supabase) {
-          setNotes([]);
-          return;
-        }
-
-        const userId = await getUserId();
-        if (!userId) {
-          setNotes([]);
-          setTags([]);
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from("notes")
-          .select("*")
-          .eq("user_id", userId)
-          .order("updated_at", { ascending: false });
-
-        if (error) {
-          console.error("Error loading notes:", error);
-          setNotes([]);
-        } else {
-          setNotes((data as Note[]) || []);
-        }
-
-        const { data: tagsData } = await supabase
-          .from("tags")
-          .select("*")
-          .eq("user_id", userId)
-          .order("name");
-
-        if (tagsData) {
-          setTags(tagsData as TagType[]);
-        }
+  // 加载标签（笔记列表现在由 Context 管理）
+  const loadTags = useCallback(async () => {
+    if (useLocalStorage) {
+      setTags(getLocalTags());
+    } else {
+      const supabase = createClient();
+      if (!supabase) {
+        setTags([]);
+        return;
       }
-    } catch (error) {
-      console.error("Failed to load notes:", error);
-      setNotes([]);
-    } finally {
-      setLoading(false);
+
+      const userId = await getUserId();
+      if (!userId) {
+        setTags([]);
+        return;
+      }
+
+      const { data: tagsData } = await supabase
+        .from("tags")
+        .select("*")
+        .eq("user_id", userId)
+        .order("name");
+
+      if (tagsData) {
+        setTags(tagsData as TagType[]);
+      }
     }
   }, [useLocalStorage]);
 
+  // 初始加载标签
   useEffect(() => {
-    loadNotes();
-  }, [loadNotes]);
+    loadTags();
+  }, [loadTags]);
 
+  // 当路由变化时，刷新笔记列表
   useEffect(() => {
-    // 当路由变化时，如果当前在 dashboard 首页或文件夹页面，重新加载笔记
     if (pathname === "/dashboard" || pathname.startsWith("/dashboard/folder")) {
-      loadNotes();
+      refreshNotes();
     }
-  }, [pathname, loadNotes]);
+  }, [pathname, refreshNotes]);
 
   const getTaggedNoteIds = useCallback(async () => {
     if (selectedTags.length === 0) return null;
@@ -198,9 +187,9 @@ export function AppSidebar() {
     }
   }, [selectedTags, useLocalStorage, notes]);
 
+  // 过滤笔记的逻辑
   useEffect(() => {
     const timeoutId = setTimeout(async () => {
-      setLoading(true);
       try {
         let result = [...notes];
 
@@ -237,8 +226,6 @@ export function AppSidebar() {
       } catch (error) {
         console.error("过滤笔记时出错:", error);
         setFilteredNotes([]);
-      } finally {
-        setLoading(false);
       }
     }, 150);
 
@@ -249,60 +236,10 @@ export function AppSidebar() {
     setShowNameDialog(true);
   };
 
-  // const handleConfirmCreateNote = async (noteName: string) => {
-  //   if (useLocalStorage) {
-  //     const newNote = createLocalNote({ title: noteName, content: "" });
-  //     setNotes(getLocalNotes());
-  //     router.push(`/dashboard/notes/${newNote.id}`);
-  //   } else {
-  //     const supabase = createClient();
-  //     if (!supabase) {
-  //       console.error("No Supabase client");
-  //       return;
-  //     }
-
-  //     const userId = await getUserId();
-  //     if (!userId) {
-  //       alert("请先登录");
-  //       router.push("/login");
-  //       return;
-  //     }
-
-  //     try {
-  //       const { data, error } = await supabase
-  //         .from("notes")
-  //         .insert({
-  //           title: noteName,
-  //           content: "",
-  //           user_id: userId,
-  //           updated_at: new Date().toISOString(),
-  //         })
-  //         .select()
-  //         .single();
-
-  //       if (error) {
-  //         console.error("Error creating note:", error);
-  //         alert("创建笔记失败: " + error.message);
-  //         return;
-  //       }
-
-  //       if (data) {
-  //         setNotes((prev) => [data as Note, ...prev]);
-  //         router.push(`/dashboard/notes/${data.id}`);
-  //       }
-  //     } catch (error) {
-  //       console.error("Unexpected error:", error);
-  //       alert("创建笔记时发生未知错误");
-  //     }
-  //   }
-  //   if (isMobile) {
-  //     setOpenMobile(false);
-  //   }
-  // };
   const handleConfirmCreateNote = async (noteName: string) => {
     if (useLocalStorage) {
       const newNote = createLocalNote({ title: noteName, content: "" });
-      setNotes(getLocalNotes());
+      addNote(newNote); // 使用 Context 的 addNote
       router.push(`/dashboard/notes/${newNote.id}`);
     } else {
       const supabase = createClient();
@@ -344,7 +281,7 @@ export function AppSidebar() {
         }
 
         if (data) {
-          setNotes((prev) => [data as Note, ...prev]);
+          addNote(data as Note); // 使用 Context 的 addNote
           router.push(`/dashboard/notes/${data.id}`);
         }
       } catch (error: any) {
@@ -393,7 +330,6 @@ export function AppSidebar() {
     if (useLocalStorage) {
       deleteLocalTag(tagId);
       setTags(getLocalTags());
-      setNotes(getLocalNotes());
       setSelectedTags((prev) => {
         const tag = tags.find((t) => t.id === tagId);
         return tag ? prev.filter((t) => t !== tag.name) : prev;
@@ -434,7 +370,8 @@ export function AppSidebar() {
 
     if (useLocalStorage) {
       updateLocalNote(noteId, { title: trimmedTitle });
-      setNotes(getLocalNotes());
+      // 本地存储模式下，需要刷新整个笔记列表
+      refreshNotes();
     } else {
       const supabase = createClient();
       if (!supabase) return;
@@ -449,17 +386,11 @@ export function AppSidebar() {
         return;
       }
 
-      setNotes((prev) =>
-        prev.map((n) =>
-          n.id === noteId
-            ? {
-              ...n,
-              title: trimmedTitle,
-              updated_at: new Date().toISOString(),
-            }
-            : n
-        )
-      );
+      // 使用 Context 的 updateNote 更新笔记
+      updateNote(noteId, {
+        title: trimmedTitle,
+        updated_at: new Date().toISOString(),
+      });
     }
 
     setEditingId(null);
@@ -517,9 +448,10 @@ export function AppSidebar() {
 
   const handleDeleteNote = async (noteId: string) => {
     if (useLocalStorage) {
-      const notes = getLocalNotes().filter((n) => n.id !== noteId);
-      setNotes(notes);
-      localStorage.setItem("notes", JSON.stringify(notes));
+      localStorage.setItem("notes", JSON.stringify(
+        getLocalNotes().filter((n) => n.id !== noteId)
+      ));
+      deleteNote(noteId); // 使用 Context 的 deleteNote
     } else {
       const supabase = createClient();
       if (!supabase) return;
@@ -528,7 +460,7 @@ export function AppSidebar() {
         console.error("Error deleting note:", error);
         return;
       }
-      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      deleteNote(noteId); // 使用 Context 的 deleteNote
     }
   };
 
@@ -610,10 +542,10 @@ export function AppSidebar() {
         />
 
         <SidebarNotesList
-          notes={notes}
+          notes={notes}               // 使用 Context 的 notes
           filteredNotes={filteredNotes}
           tags={tags}
-          loading={loading}
+          loading={loading}           // 使用 Context 的 loading
           searchQuery={searchQuery}
           selectedTags={selectedTags}
           pathname={pathname}
