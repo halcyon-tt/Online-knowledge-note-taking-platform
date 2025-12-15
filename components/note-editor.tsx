@@ -488,8 +488,8 @@ export default function Tiptap({
   // 编辑器快捷键
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        switch (e.key) {
+      if ((e.shiftKey && e.ctrlKey) || e.metaKey) {
+        switch (e.code) {
           case "b":
             e.preventDefault();
             toggleBold();
