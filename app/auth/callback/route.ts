@@ -3,14 +3,19 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import type { PostgrestError } from '@supabase/supabase-js'
 
+/**
+ * 处理 OAuth 回调的 GET 请求处理器
+ * 主要功能：处理 GitHub/邮箱登录的回调，交换 code 为 session，创建用户记录，并重定向到相应页面
+ */
 export async function GET(request: Request) {
     try {
+        // 从请求 URL 中提取查询参数
         const requestUrl = new URL(request.url)
-        const code = requestUrl.searchParams.get('code')
-        const error = requestUrl.searchParams.get('error')
-        const next = requestUrl.searchParams.get('next') || '/dashboard'
+        const code = requestUrl.searchParams.get('code')        // OAuth 授权码
+        const error = requestUrl.searchParams.get('error')      // 错误信息
+        const next = requestUrl.searchParams.get('next') || '/dashboard'  // 登录成功后的目标页面
 
-        // 处理 OAuth 错误
+        // 处理 OAuth 错误情况
         if (error) {
             console.error('OAuth 错误:', error);
             return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error)}`, requestUrl.origin))

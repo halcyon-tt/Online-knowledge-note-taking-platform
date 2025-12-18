@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
@@ -11,6 +11,7 @@ import Image from "@tiptap/extension-image";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import "markdown-it";
+import debounce from 'lodash/debounce';
 
 import {
   Bold,
@@ -259,6 +260,14 @@ export default function Tiptap({
 
   const router = useRouter();
 
+  const debouncedOnChange = useMemo(
+    () => debounce((content: string) => {
+      // console.log('🚀 实际执行 onChange:', new Date().toISOString());
+      // console.log('📝 内容长度:', content.length);
+      if (onChange) onChange(content);
+    }, 500),
+    [onChange]
+  );
 
   // 初始化编辑器
   const editor = useEditor({
@@ -325,14 +334,24 @@ export default function Tiptap({
       setWordCount(text.split(/\s+/).filter((word) => word.length > 0).length);
       setCharCount(text.length);
 
-      if (onChange) {
-        onChange(html);
-      }
+      // if (onChange) {
+      //   onChange(html);
+      // }
+      debouncedOnChange(html);
     },
   });
 
+  // 清理防抖函数（防止内存泄漏）
+  useEffect(() => {
+    return () => {
+      if (debouncedOnChange && debouncedOnChange.cancel) {
+        debouncedOnChange.cancel();
+      }
+    };
+  }, [debouncedOnChange]);
+
   // 工具栏按钮功能
-  const toggleBold = () => editor?.chain().focus().toggleBold().run();
+  const toggleBold = useCallback(() => editor?.chain().focus().toggleBold().run(), [editor]);
   const toggleItalic = () => editor?.chain().focus().toggleItalic().run();
   const toggleStrike = () => editor?.chain().focus().toggleStrike().run();
   const toggleHeading1 = () => {
@@ -344,7 +363,7 @@ export default function Tiptap({
     editor?.chain().focus().toggleHeading({ level: 2 }).run();
   };
   const toggleHeading3 = () => {
-    // console.log("设置三级标题");
+    // console.log("设置三级标题");  // 单行注释：用于说明这行代码的用途，这里表示输出"设置三级标题"到控制台
     editor?.chain().focus().toggleHeading({ level: 3 }).run();
   };
   const toggleHeading4 = () =>
@@ -367,6 +386,11 @@ export default function Tiptap({
     setShowImageModal(true);
   }, []);
 
+  /**
+   * 插入链接功能
+   * 该组件用于在富文本编辑器中插入链接
+   * 用户可以选择文本并添加链接地址
+   */
   // 插入链接
   const insertLink = useCallback(() => {
     const url = window.prompt("请输入 URL");
@@ -609,15 +633,15 @@ export default function Tiptap({
             </div>
 
             {/* 字体 - 移动端隐藏 */}
-            <div className="hidden md:flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
+            {/* <div className="hidden md:flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
               <button
                 onClick={() => setShowFontModal(true)}
                 className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200"
                 title="设置字体"
-              >
+              >     
                 <Type className="w-5 h-5" />
               </button>
-            </div>
+            </div> */}
 
             {/* 标题 */}
             <div className="flex items-center space-x-0.5 md:space-x-1 border-r border-gray-200 dark:border-gray-800 pr-1 md:pr-3">
@@ -860,7 +884,7 @@ export default function Tiptap({
       </div>
 
       {/* 字体设置弹窗 */}
-      {showFontModal && (
+      {/* {showFontModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
           <div className="bg-white dark:bg-gray-900 p-4 md:p-6 rounded-lg shadow-xl w-full max-w-md">
             <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
@@ -889,7 +913,7 @@ export default function Tiptap({
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* 图片插入对话框 */}
       {showImageModal && (

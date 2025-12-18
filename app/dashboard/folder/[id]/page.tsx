@@ -10,9 +10,10 @@ import {
   updateLocalFolder,
   deleteLocalFolder,
 } from "@/lib/local-storage";
-import { getUserId } from "@/lib/auth-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext"; // ✅ 已导入
+
 import {
   ArrowLeft,
   FileText,
@@ -44,49 +45,65 @@ export default function FolderPage({ params }: PageProps) {
   const [loading, setLoading] = useState(true);
   const useLocalStorage = !isSupabaseConfigured();
   const { setCurrentFolderId } = useCurrentFolderIdStore();
+  const { user, loading: authLoading } = useAuth(); // ✅ 从 Context 获取用户
+
+  // ✅ 新增：认证检查
+  useEffect(() => {
+    if (!authLoading && !user && !useLocalStorage) {
+      router.push("/login");
+    }
+  }, [authLoading, user, useLocalStorage, router]);
 
   useEffect(() => {
-    async function loadFolder() {
-      if (useLocalStorage) {
-        // 本地存储模式
-        const localFolder = getLocalFolder(id);
-        if (!localFolder) {
-          router.push("/dashboard");
-          return;
-        }
-        setFolder(localFolder);
+    // ✅ 只有当用户已登录或使用本地存储时才加载
+    if ((user || useLocalStorage) && !authLoading) {
+      loadFolder();
+    }
+  }, [id, user, authLoading, useLocalStorage]);
 
-        // 获取文件夹内的笔记
-        if (localFolder.notes_id) {
-          const noteIds = localFolder.notes_id
-            .split(",")
-            .filter((nid) => nid.trim() !== "");
-          const allNotes = getLocalNotes();
-          const folderNotes = allNotes.filter(
-            (note) => note.id && noteIds.includes(note.id)
-          );
-          setNotes(folderNotes);
-        }
-      } else {
-        // Supabase 模式
-        const supabase = createClient();
-        if (!supabase) {
-          router.push("/dashboard");
-          return;
-        }
+  async function loadFolder() {
+    if (useLocalStorage) {
+      // 本地存储模式
+      const localFolder = getLocalFolder(id);
+      if (!localFolder) {
+        router.push("/dashboard");
+        return;
+      }
+      setFolder(localFolder);
 
-        const userId = await getUserId();
-        if (!userId) {
-          router.push("/login");
-          return;
-        }
+      // 获取文件夹内的笔记
+      if (localFolder.notes_id) {
+        const noteIds = localFolder.notes_id
+          .split(",")
+          .filter((nid) => nid.trim() !== "");
+        const allNotes = getLocalNotes();
+        const folderNotes = allNotes.filter(
+          (note) => note.id && noteIds.includes(note.id)
+        );
+        setNotes(folderNotes);
+      }
+    } else {
+      // Supabase 模式 - ✅ 使用 user?.id
+      const supabase = createClient();
+      if (!supabase) {
+        router.push("/dashboard");
+        return;
+      }
 
-        // 获取文件夹
+      // ✅ 直接检查 user，不再调用 getUserId()
+      if (!user) {
+        // 用户未登录，会在上面的 useEffect 中重定向
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // 获取文件夹 - ✅ 使用 user.id
         const { data: folderData, error: folderError } = await supabase
           .from("folders")
           .select("*")
           .eq("id", id)
-          .eq("user_id", userId)
+          .eq("user_id", user.id) // ✅ 直接使用 user.id
           .single();
 
         if (folderError || !folderData) {
@@ -96,7 +113,7 @@ export default function FolderPage({ params }: PageProps) {
 
         setFolder(folderData as Folder);
 
-        // 获取文件夹内的笔记
+        // 获取文件夹内的笔记 - ✅ 使用 user.id
         if (folderData.notes_id) {
           const noteIds = folderData.notes_id
             .split(",")
@@ -106,26 +123,26 @@ export default function FolderPage({ params }: PageProps) {
               .from("notes")
               .select("*")
               .in("id", noteIds)
-              .eq("user_id", userId);
+              .eq("user_id", user.id); // ✅ 直接使用 user.id
 
             if (notesData) {
               setNotes(notesData as Note[]);
             }
           }
         }
+      } catch (error) {
+        console.error("加载文件夹失败:", error);
+        router.push("/dashboard");
       }
-      setLoading(false);
     }
-
-    loadFolder();
-  }, [id, useLocalStorage, router]);
+    setLoading(false);
+  }
 
   useEffect(() => {
-    // console.log("Folder data:", id);
     setCurrentFolderId(id);
   }, []);
 
-  // 重命名文件夹
+  // 重命名文件夹 - ✅ 修改
   const handleRename = async () => {
     if (!folder) return;
     const newName = window.prompt("请输入新的文件夹名:", folder.name);
@@ -141,16 +158,14 @@ export default function FolderPage({ params }: PageProps) {
       setFolder(updatedFolder);
     } else {
       const supabase = createClient();
-      if (!supabase) return;
+      if (!supabase || !user) return; // ✅ 检查 user
 
-      const userId = await getUserId();
-      if (!userId) return;
-
+      // ✅ 直接使用 user.id
       const { data, error } = await supabase
         .from("folders")
         .update({ name: newName, updated_at: new Date().toISOString() })
         .eq("id", id)
-        .eq("user_id", userId)
+        .eq("user_id", user.id) // ✅ 直接使用 user.id
         .select()
         .single();
 
@@ -160,7 +175,7 @@ export default function FolderPage({ params }: PageProps) {
     }
   };
 
-  // 删除文件夹
+  // 删除文件夹 - ✅ 修改
   const handleDelete = async () => {
     if (!folder) return;
     const confirmed = window.confirm(
@@ -173,16 +188,14 @@ export default function FolderPage({ params }: PageProps) {
       router.push("/dashboard");
     } else {
       const supabase = createClient();
-      if (!supabase) return;
+      if (!supabase || !user) return; // ✅ 检查 user
 
-      const userId = await getUserId();
-      if (!userId) return;
-
+      // ✅ 直接使用 user.id
       const { error } = await supabase
         .from("folders")
         .delete()
         .eq("id", id)
-        .eq("user_id", userId);
+        .eq("user_id", user.id); // ✅ 直接使用 user.id
 
       if (!error) {
         router.push("/dashboard");
@@ -190,7 +203,7 @@ export default function FolderPage({ params }: PageProps) {
     }
   };
 
-  // 从文件夹移出笔记
+  // 从文件夹移出笔记 - ✅ 修改
   const handleRemoveNote = async (noteId: string) => {
     if (!folder) return;
     const confirmed = window.confirm("确定要从文件夹中移除这个笔记吗？");
@@ -212,16 +225,14 @@ export default function FolderPage({ params }: PageProps) {
       setNotes((prev) => prev.filter((n) => n.id !== noteId));
     } else {
       const supabase = createClient();
-      if (!supabase) return;
+      if (!supabase || !user) return; // ✅ 检查 user
 
-      const userId = await getUserId();
-      if (!userId) return;
-
+      // ✅ 直接使用 user.id
       const { data, error } = await supabase
         .from("folders")
         .update({ notes_id: newNoteIds, updated_at: new Date().toISOString() })
         .eq("id", id)
-        .eq("user_id", userId)
+        .eq("user_id", user.id) // ✅ 直接使用 user.id
         .select()
         .single();
 
@@ -232,26 +243,7 @@ export default function FolderPage({ params }: PageProps) {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">加载文件夹内容中...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!folder) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-muted-foreground">文件夹不存在或已被删除</p>
-      </div>
-    );
-  }
-
-  // 删除笔记
+  // 删除笔记 - ✅ 修改
   const handleDeleteNote = async (noteId: string) => {
     if (folder) {
       let notes_string = folder.notes_id.split(",");
@@ -269,15 +261,15 @@ export default function FolderPage({ params }: PageProps) {
       localStorage.setItem("notes", JSON.stringify(notes));
     } else {
       const supabase = createClient();
-      if (!supabase) return;
-      const userId = await getUserId();
-      if (!userId) return;
+      if (!supabase || !user) return; // ✅ 检查 user
+
+      // ✅ 直接使用 user.id
       {
         const { error } = await supabase
           .from("notes")
           .delete()
           .eq("id", noteId)
-          .eq("user_id", userId);
+          .eq("user_id", user.id); // ✅ 直接使用 user.id
         if (error) {
           console.error("Error deleting note:", error);
           return;
@@ -287,11 +279,11 @@ export default function FolderPage({ params }: PageProps) {
         const { error } = await supabase
           .from("folders")
           .update({
-            notes_id: folder.notes_id,
+            notes_id: folder?.notes_id,
             updated_at: new Date().toISOString(),
           })
           .eq("id", id)
-          .eq("user_id", userId);
+          .eq("user_id", user.id); // ✅ 直接使用 user.id
         if (error) {
           console.error("Error deleting note:", error);
           return;
@@ -300,9 +292,37 @@ export default function FolderPage({ params }: PageProps) {
       setNotes((prev) => prev.filter((n) => n.id !== noteId));
     }
     setFolder(folder);
-    // redirect(`/dashboard/folder/${folder.id}`);
-    // window.location.reload();
   };
+
+  // ✅ 改进：合并 loading 状态
+  const isLoading = loading || authLoading;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">加载文件夹内容中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user && !useLocalStorage) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-muted-foreground">请先登录</p>
+      </div>
+    );
+  }
+
+  if (!folder) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-muted-foreground">文件夹不存在或已被删除</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6">
@@ -416,8 +436,6 @@ export default function FolderPage({ params }: PageProps) {
                   if (note.id) handleRemoveNote(note.id);
                 }}
               >
-                {/* <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /> */}
-                {/* <p>移出文件夹</p> */}
                 <LogOut />
               </Button>
             </Card>
