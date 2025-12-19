@@ -12,6 +12,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import "markdown-it";
 import debounce from 'lodash/debounce';
+import ImageInsertDialog from "@/components/editor/ImageInsertDialog";
 
 import {
   Bold,
@@ -43,203 +44,13 @@ import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { getLocalNotes } from "@/lib/local-storage";
 import { useRouter } from "next/navigation";
 import MarkdownIt from "markdown-it";
+import { useEditorOperations } from "@/hooks/useEditorOperations";
+import { useEditorShortcuts } from "@/hooks/useEditorShortcuts";
 
 interface TiptapProps {
   initialContent?: string;
   onChange?: (content: string) => void;
   noteId?: string;
-}
-
-// 图片插入对话框组件
-function ImageInsertDialog({
-  editor,
-  onClose,
-}: {
-  editor: any;
-  onClose: () => void;
-}) {
-  const [url, setUrl] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
-  // 处理URL插入
-  const handleInsertByUrl = useCallback(() => {
-    if (url.trim()) {
-      editor?.chain().focus().setImage({ src: url.trim() }).run();
-      setUrl("");
-      onClose();
-    }
-  }, [editor, url, onClose]);
-
-  // 处理文件选择
-  const handleFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      // 验证文件类型
-      if (!file.type.startsWith("image/")) {
-        alert("请选择图片文件 (JPG, PNG, GIF等)");
-        return;
-      }
-
-      // 验证文件大小（限制5MB）
-      if (file.size > 5 * 1024 * 1024) {
-        alert("图片大小不能超过5MB");
-        return;
-      }
-
-      // 创建本地预览
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string;
-        setPreviewUrl(base64);
-      };
-      reader.readAsDataURL(file);
-    },
-    []
-  );
-
-  // 插入预览的图片
-  const insertPreviewImage = useCallback(() => {
-    if (previewUrl) {
-      editor?.chain().focus().setImage({ src: previewUrl }).run();
-      onClose();
-    }
-  }, [editor, previewUrl, onClose]);
-
-  // 手动触发文件选择
-  const handleSelectFile = () => {
-    fileInputRef.current?.click();
-  };
-
-  // 清除预览
-  const clearPreview = () => {
-    setPreviewUrl(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-      <div className="bg-white dark:bg-gray-900 p-4 md:p-6 rounded-lg shadow-xl w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            插入图片
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          {/* URL输入部分 */}
-          <div>
-            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-              通过URL插入
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://example.com/image.jpg"
-                className="flex-1 p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleInsertByUrl();
-                  }
-                }}
-              />
-              <Button
-                onClick={handleInsertByUrl}
-                disabled={!url.trim()}
-                size="sm"
-              >
-                插入
-              </Button>
-            </div>
-          </div>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400">
-                或
-              </span>
-            </div>
-          </div>
-
-          {/* 文件上传部分 */}
-          <div>
-            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-              从本地上传
-            </label>
-            <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-4 text-center">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-
-              {previewUrl ? (
-                <div className="relative mb-4">
-                  <img
-                    src={previewUrl || "/placeholder.svg"}
-                    alt="预览"
-                    className="max-h-48 mx-auto rounded-lg"
-                  />
-                  <button
-                    type="button"
-                    onClick={clearPreview}
-                    className="absolute top-2 right-2 p-1 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <ImageIcon className="h-12 w-12 mx-auto text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    支持 JPG, PNG, GIF 格式，最大 5MB
-                  </p>
-                </>
-              )}
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleSelectFile}
-                className="w-full bg-transparent"
-              >
-                {previewUrl ? "重新选择" : "选择图片文件"}
-              </Button>
-
-              {previewUrl && (
-                <Button onClick={insertPreviewImage} className="w-full mt-2">
-                  插入图片
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex justify-end mt-4">
-          <Button variant="outline" onClick={onClose}>
-            取消
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export default function Tiptap({
@@ -252,10 +63,10 @@ export default function Tiptap({
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
-  const [linkUrl, setLinkUrl] = useState("");
-  const [showLinkModal, setShowLinkModal] = useState(false);
-  const [showFontModal, setShowFontModal] = useState(false);
-  const [fontFamily, setFontFamily] = useState("");
+  // const [linkUrl, setLinkUrl] = useState("");
+  // const [showLinkModal, setShowLinkModal] = useState(false);
+  // const [showFontModal, setShowFontModal] = useState(false);
+  // const [fontFamily, setFontFamily] = useState("");
   const useLocalStorage = !isSupabaseConfigured();
 
   const router = useRouter();
@@ -268,6 +79,9 @@ export default function Tiptap({
     }, 500),
     [onChange]
   );
+
+
+
 
   // 初始化编辑器
   const editor = useEditor({
@@ -341,83 +155,28 @@ export default function Tiptap({
     },
   });
 
-  // 清理防抖函数（防止内存泄漏）
-  useEffect(() => {
-    return () => {
-      if (debouncedOnChange && debouncedOnChange.cancel) {
-        debouncedOnChange.cancel();
-      }
-    };
-  }, [debouncedOnChange]);
+  // 1. 获取编辑器操作函数
+  const operations = useEditorOperations(editor);
+  // 保存到本地存储
+  const saveToLocalStorage = useCallback(() => {
+    if (!editor) return;
 
-  // 工具栏按钮功能
-  const toggleBold = useCallback(() => editor?.chain().focus().toggleBold().run(), [editor]);
-  const toggleItalic = () => editor?.chain().focus().toggleItalic().run();
-  const toggleStrike = () => editor?.chain().focus().toggleStrike().run();
-  const toggleHeading1 = () => {
-    // console.log("设置一级标题");
-    editor?.chain().focus().toggleHeading({ level: 1 }).run();
-  };
-  const toggleHeading2 = () => {
-    // console.log("设置二级标题");
-    editor?.chain().focus().toggleHeading({ level: 2 }).run();
-  };
-  const toggleHeading3 = () => {
-    // console.log("设置三级标题");  // 单行注释：用于说明这行代码的用途，这里表示输出"设置三级标题"到控制台
-    editor?.chain().focus().toggleHeading({ level: 3 }).run();
-  };
-  const toggleHeading4 = () =>
-    editor?.chain().focus().toggleHeading({ level: 4 }).run();
-  const toggleBulletList = () =>
-    editor?.chain().focus().toggleBulletList().run();
-  const toggleOrderedList = () =>
-    editor?.chain().focus().toggleOrderedList().run();
-  const toggleBlockquote = () =>
-    editor?.chain().focus().toggleBlockquote().run();
-  const toggleCode = () => editor?.chain().focus().toggleCode().run();
-  const toggleCodeBlock = () => editor?.chain().focus().toggleCodeBlock().run();
-  const undo = () => editor?.chain().focus().undo().run();
-  const redo = () => editor?.chain().focus().redo().run();
-  const setHorizontalRule = () =>
-    editor?.chain().focus().setHorizontalRule().run();
-
-  // 修改后的插入图片函数
-  const insertImage = useCallback(() => {
-    setShowImageModal(true);
-  }, []);
-
-  /**
-   * 插入链接功能
-   * 该组件用于在富文本编辑器中插入链接
-   * 用户可以选择文本并添加链接地址
-   */
-  // 插入链接
-  const insertLink = useCallback(() => {
-    const url = window.prompt("请输入 URL");
-    if (url) {
-      editor?.chain().focus().setLink({ href: url }).run();
-    }
+    const content = editor.getHTML();
+    localStorage.setItem("tiptap-content", content);
+    alert("内容已保存到本地存储！");
   }, [editor]);
+  // 复制内容
+  const copyToClipboard = async () => {
+    if (!editor) return;
 
-  // 设置字体
-  const setFont = () => {
-    if (fontFamily.trim() && editor) {
-      editor.chain().focus().setFontFamily(fontFamily).run();
-      setFontFamily("");
-      setShowFontModal(false);
+    const text = editor.getText();
+    try {
+      await navigator.clipboard.writeText(text);
+      alert("内容已复制到剪贴板！");
+    } catch (err) {
+      console.error("复制失败:", err);
     }
   };
-
-  // 清除格式
-  const clearFormat = () => {
-    editor?.chain().focus().clearNodes().unsetAllMarks().run();
-  };
-
-  // 重置为段落
-  const setParagraph = () => {
-    editor?.chain().focus().setParagraph().run();
-  };
-
   // 导出为Markdown
   const exportToMarkdown = () => {
     if (!editor) return "";
@@ -468,27 +227,39 @@ export default function Tiptap({
     URL.revokeObjectURL(url);
   };
 
-  // 复制内容
-  const copyToClipboard = async () => {
-    if (!editor) return;
-
-    const text = editor.getText();
-    try {
-      await navigator.clipboard.writeText(text);
-      alert("内容已复制到剪贴板！");
-    } catch (err) {
-      console.error("复制失败:", err);
+  // 重置编辑器
+  const resetEditor = () => {
+    if (confirm("确定要清空编辑器吗？")) {
+      editor?.commands.clearContent();
+      setContent("");
     }
   };
 
-  // 保存到本地存储
-  const saveToLocalStorage = () => {
-    if (!editor) return;
 
-    const content = editor.getHTML();
-    localStorage.setItem("tiptap-content", content);
-    alert("内容已保存到本地存储！");
-  };
+  // 3. 封装所有自定义回调
+  const customCallbacks = useMemo(() => ({
+    saveToLocalStorage,    // ← 这里提供saveToLocalStorage的实现
+    copyToClipboard,
+    exportToMarkdown,
+    resetEditor,
+  }), [saveToLocalStorage, copyToClipboard, exportToMarkdown, resetEditor]);
+
+  // 4. 启用快捷键系统
+  useEditorShortcuts(editor, operations, customCallbacks);
+
+  // 清理防抖函数（防止内存泄漏）
+  useEffect(() => {
+    return () => {
+      if (debouncedOnChange && debouncedOnChange.cancel) {
+        debouncedOnChange.cancel();
+      }
+    };
+  }, [debouncedOnChange]);
+
+  // 修改后的插入图片函数
+  const insertImage = useCallback(() => {
+    setShowImageModal(true);
+  }, []);
 
   // 从本地存储加载
   const loadFromLocalStorage = () => {
@@ -499,73 +270,9 @@ export default function Tiptap({
     }
   };
 
-  // 重置编辑器
-  const resetEditor = () => {
-    if (confirm("确定要清空编辑器吗？")) {
-      editor?.commands.clearContent();
-      setContent("");
-    }
-  };
-
   useEffect(() => {
     if (!editor) return;
   }, [editor, charCount]);
-
-  // 编辑器快捷键
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.shiftKey && e.ctrlKey) || e.metaKey) {
-        switch (e.code) {
-          case "b":
-            e.preventDefault();
-            toggleBold();
-            break;
-          case "i":
-            e.preventDefault();
-            toggleItalic();
-            break;
-          case "1":
-            if (e.shiftKey) {
-              e.preventDefault();
-              toggleHeading1();
-            }
-            break;
-          case "2":
-            if (e.shiftKey) {
-              e.preventDefault();
-              toggleHeading2();
-            }
-            break;
-          case "3":
-            if (e.shiftKey) {
-              e.preventDefault();
-              toggleHeading3();
-            }
-            break;
-          case "z":
-            if (e.shiftKey) {
-              e.preventDefault();
-              redo();
-            } else {
-              e.preventDefault();
-              undo();
-            }
-            break;
-          case "y":
-            e.preventDefault();
-            redo();
-            break;
-          case "s":
-            e.preventDefault();
-            saveToLocalStorage();
-            break;
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [editor]);
 
   if (!editor) {
     return (
@@ -610,21 +317,21 @@ export default function Tiptap({
             {/* 文本样式 */}
             <div className="flex items-center space-x-0.5 md:space-x-1 border-r border-gray-200 dark:border-gray-800 pr-1 md:pr-3">
               <button
-                onClick={toggleBold}
+                onClick={operations.toggleBold}
                 className={`p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("bold") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="粗体 (Ctrl+B)"
               >
                 <Bold className="w-4 h-4 md:w-5 md:h-5" />
               </button>
               <button
-                onClick={toggleItalic}
+                onClick={operations.toggleItalic}
                 className={`p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("italic") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="斜体 (Ctrl+I)"
               >
                 <Italic className="w-4 h-4 md:w-5 md:h-5" />
               </button>
               <button
-                onClick={toggleStrike}
+                onClick={operations.toggleStrike}
                 className={`hidden sm:block p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("strike") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="删除线"
               >
@@ -632,42 +339,31 @@ export default function Tiptap({
               </button>
             </div>
 
-            {/* 字体 - 移动端隐藏 */}
-            {/* <div className="hidden md:flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
-              <button
-                onClick={() => setShowFontModal(true)}
-                className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200"
-                title="设置字体"
-              >     
-                <Type className="w-5 h-5" />
-              </button>
-            </div> */}
-
             {/* 标题 */}
             <div className="flex items-center space-x-0.5 md:space-x-1 border-r border-gray-200 dark:border-gray-800 pr-1 md:pr-3">
               <button
-                onClick={toggleHeading1}
+                onClick={operations.toggleHeading1}
                 className={`p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("heading", { level: 1 }) ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="一级标题 (Shift+1)"
               >
                 <span className="text-xs md:text-sm font-bold">H1</span>
               </button>
               <button
-                onClick={toggleHeading2}
+                onClick={operations.toggleHeading2}
                 className={`p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("heading", { level: 2 }) ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="二级标题 (Shift+2)"
               >
                 <span className="text-xs md:text-sm font-bold">H2</span>
               </button>
               <button
-                onClick={toggleHeading3}
+                onClick={operations.toggleHeading3}
                 className={`hidden sm:block p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("heading", { level: 3 }) ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="三级标题 (Shift+3)"
               >
                 <span className="text-xs md:text-sm font-bold">H3</span>
               </button>
               <button
-                onClick={setParagraph}
+                onClick={operations.setParagraph}
                 className={`hidden md:block p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("paragraph") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="段落"
               >
@@ -678,14 +374,14 @@ export default function Tiptap({
             {/* 列表 */}
             <div className="flex items-center space-x-0.5 md:space-x-1 border-r border-gray-200 dark:border-gray-800 pr-1 md:pr-3">
               <button
-                onClick={toggleBulletList}
+                onClick={operations.toggleBulletList}
                 className={`p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("bulletList") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="无序列表"
               >
                 <List className="w-4 h-4 md:w-5 md:h-5" />
               </button>
               <button
-                onClick={toggleOrderedList}
+                onClick={operations.toggleOrderedList}
                 className={`p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("orderedList") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="有序列表"
               >
@@ -696,14 +392,14 @@ export default function Tiptap({
             {/* 引用和代码 - 移动端隐藏代码块 */}
             <div className="flex items-center space-x-0.5 md:space-x-1 border-r border-gray-200 dark:border-gray-800 pr-1 md:pr-3">
               <button
-                onClick={toggleBlockquote}
+                onClick={operations.toggleBlockquote}
                 className={`p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("blockquote") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="引用"
               >
                 <Quote className="w-4 h-4 md:w-5 md:h-5" />
               </button>
               <button
-                onClick={toggleCodeBlock}
+                onClick={operations.toggleCodeBlock}
                 className={`hidden sm:block p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("codeBlock") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="代码块"
               >
@@ -714,7 +410,7 @@ export default function Tiptap({
             {/* 链接和图片 */}
             <div className="flex items-center space-x-0.5 md:space-x-1 border-r border-gray-200 dark:border-gray-800 pr-1 md:pr-3">
               <button
-                onClick={insertLink}
+                onClick={operations.insertLink}
                 className={`p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("link") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="插入链接"
               >
@@ -732,7 +428,7 @@ export default function Tiptap({
             {/* 分隔线 - 移动端隐藏 */}
             <div className="hidden md:flex items-center space-x-1 border-r border-gray-200 dark:border-gray-800 pr-3">
               <button
-                onClick={setHorizontalRule}
+                onClick={operations.setHorizontalRule}
                 className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200"
                 title="分隔线"
               >
@@ -743,7 +439,7 @@ export default function Tiptap({
             {/* 撤销重做 */}
             <div className="flex items-center space-x-0.5 md:space-x-1 border-r border-gray-200 dark:border-gray-800 pr-1 md:pr-3">
               <button
-                onClick={undo}
+                onClick={operations.undo}
                 className="p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="撤销 (Ctrl+Z)"
                 disabled={!editor.can().undo()}
@@ -751,7 +447,7 @@ export default function Tiptap({
                 <Undo className="w-4 h-4 md:w-5 md:h-5" />
               </button>
               <button
-                onClick={redo}
+                onClick={operations.redo}
                 className="p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="重做 (Ctrl+Y)"
                 disabled={!editor.can().redo()}
@@ -762,38 +458,12 @@ export default function Tiptap({
 
             {/* 清除格式 - 移动端隐藏 */}
             <button
-              onClick={clearFormat}
+              onClick={operations.clearFormat}
               className="hidden md:block p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200"
               title="清除格式"
             >
               <Highlighter className="w-5 h-5" />
             </button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="md:hidden p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300">
-                  <MoreHorizontal className="w-4 h-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={toggleStrike}>
-                  <Strikethrough className="w-4 h-4 mr-2" />
-                  删除线
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={toggleHeading3}>
-                  <span className="font-bold mr-2">H3</span>
-                  三级标题
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={toggleCodeBlock}>
-                  <Code className="w-4 h-4 mr-2" />
-                  代码块
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={clearFormat}>
-                  <Highlighter className="w-4 h-4 mr-2" />
-                  清除格式
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
 
           {/* 操作按钮栏 */}
@@ -882,38 +552,6 @@ export default function Tiptap({
           <EditorContent editor={editor} />
         )}
       </div>
-
-      {/* 字体设置弹窗 */}
-      {/* {showFontModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-          <div className="bg-white dark:bg-gray-900 p-4 md:p-6 rounded-lg shadow-xl w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
-              设置字体
-            </h3>
-            <input
-              type="text"
-              value={fontFamily}
-              onChange={(e) => setFontFamily(e.target.value)}
-              placeholder="输入字体名称 (如: Arial, 微软雅黑)"
-              className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-            />
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                onClick={() => setShowFontModal(false)}
-                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={setFont}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                确定
-              </button>
-            </div>
-          </div>
-        </div>
-      )} */}
 
       {/* 图片插入对话框 */}
       {showImageModal && (
