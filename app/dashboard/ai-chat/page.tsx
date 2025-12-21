@@ -78,7 +78,7 @@ export default function AIChatPage() {
     return notes.map((n) => ({
       id: n.id,
       title: n.title,
-      content: n.content?.replace(/<[^>]*>/g, "").slice(0, 500) || "",
+      content: n.content?.replace(/<[^>]*>/g, "") || "",
     }));
   }, [notes]);
 
