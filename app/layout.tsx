@@ -34,12 +34,7 @@ export default function RootLayout({
     >
       <AuthProvider>
         <body className="font-sans antialiased">
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
+          <ThemeProvider defaultTheme="system">
             {children}
           </ThemeProvider>
           <Analytics />
