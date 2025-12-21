@@ -528,9 +528,9 @@ export function AppSidebar() {
           onSearchChange={setSearchQuery}
         />
 
-        <SidebarGroup>
+        {/* <SidebarGroup>
           <AISearchDialog />
-        </SidebarGroup>
+        </SidebarGroup> */}
 
         <SidebarTagsSection
           tags={tags}

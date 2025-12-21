@@ -46,6 +46,7 @@ import { useRouter } from "next/navigation";
 import MarkdownIt from "markdown-it";
 import { useEditorOperations } from "@/hooks/useEditorOperations";
 import { useEditorShortcuts } from "@/hooks/useEditorShortcuts";
+import Loading from "@/app/dashboard/ai-chat/loading";
 
 interface TiptapProps {
   initialContent?: string;
@@ -63,26 +64,44 @@ export default function Tiptap({
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
-  // const [linkUrl, setLinkUrl] = useState("");
-  // const [showLinkModal, setShowLinkModal] = useState(false);
-  // const [showFontModal, setShowFontModal] = useState(false);
-  // const [fontFamily, setFontFamily] = useState("");
   const useLocalStorage = !isSupabaseConfigured();
 
   const router = useRouter();
 
+  // 防抖函数
   const debouncedOnChange = useMemo(
     () => debounce((content: string) => {
-      // console.log('🚀 实际执行 onChange:', new Date().toISOString());
-      // console.log('📝 内容长度:', content.length);
       if (onChange) onChange(content);
     }, 500),
     [onChange]
   );
+  // const LazyImageExtension = Image.extend({
+  //   addAttributes() {
+  //     return {
+  //       ...this.parent?.(),
+  //       loading: {
+  //         default: 'lazy',
+  //         parseHTML: element => element.getAttribute('loading') || 'lazy'
+  //       },
+  //       'data-src': {
+  //         default: null,
+  //         parseHTML: element => element.getAttribute('data-src') || (element as HTMLImageElement).src
+  //       }
+  //     };
+  //   },
 
-
-
-
+  //   renderHTML({ HTMLAttributes }) {
+  //     return [
+  //       'img',
+  //       {
+  //         ...HTMLAttributes,DOMPurify
+  //         loading: 'lazy',
+  //         'data-src': HTMLAttributes.src,
+  //         src: 'data:image/svg+xml;base64,...', // 占位图
+  //       }
+  //     ];
+  //   }
+  // });
   // 初始化编辑器
   const editor = useEditor({
     immediatelyRender: false,
@@ -135,8 +154,18 @@ export default function Tiptap({
         HTMLAttributes: {
           class:
             "rounded-lg border-2 border-gray-700 hover:border-blue-500 transition-all duration-300",
+          // loading: "lazy",
+          // decoding:"async"
         },
       }),
+      // LazyImageExtension.configure({
+      //   inline: false,
+      //   allowBase64: false, // 禁止Base64
+      //   HTMLAttributes: {
+      //     class: 'lazy-image rounded-lg border-2 border-gray-700',
+      //     loading: 'lazy'
+      //   }
+      // }),
     ],
     content: initialContent,
     onUpdate: ({ editor }) => {
@@ -234,7 +263,6 @@ export default function Tiptap({
       setContent("");
     }
   };
-
 
   // 3. 封装所有自定义回调
   const customCallbacks = useMemo(() => ({

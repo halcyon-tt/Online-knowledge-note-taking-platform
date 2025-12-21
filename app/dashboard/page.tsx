@@ -19,6 +19,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Folder, Note } from "@/types/note";
 import { useCurrentFolderIdStore } from "@/lib/store/folders";
+import { useStorageMode } from "@/hooks/useStorageMode"; // 新增导入
+import { offlineManager } from "@/lib/offline-manager"; // 新增导入
 import {
   Pagination,
   PaginationContent,
@@ -29,6 +31,7 @@ import {
   PaginationEllipsis,
 } from "@/components/ui/pagination";
 import { useNotes } from "@/contexts/NotesContext"; // 新增导入
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 const NOTES_PER_PAGE = 6;
 
@@ -42,7 +45,9 @@ export default function DashboardPage() {
   const [folderNoteIds, setFolderNoteIds] = useState<string[] | null>(null);
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
   const [draggingOverFolderId, setDraggingOverFolderId] = useState<string | null>(null);
-  const useLocalStorage = !isSupabaseConfigured();
+  // 判断是否在本地存储模式下 是否在线
+  const { useLocalStorage, isOnline, storageMode } = useStorageMode();
+
   const { setCurrentFolderId } = useCurrentFolderIdStore();
 
   // 本地状态用于分页
@@ -462,6 +467,9 @@ export default function DashboardPage() {
           开始编写你的 Markdown 笔记
           {useLocalStorage && (
             <span className="text-yellow-500 ml-2">(本地存储模式)</span>
+          )}
+          {!isOnline && isSupabaseConfigured() && (
+            <span className="text-red-500 ml-2">(网络离线)</span>
           )}
         </p>
       </div>

@@ -53,7 +53,7 @@ ID: ${note.id}
 1. 使用中文，简洁明了
 2. 结构化输出，使用标题和列表
 3. 引用笔记时使用【笔记标题】标注来源
-4. 给出相关笔记的ID列表（JSON格式），格式：[RELATED_NOTES:id1,id2,id3]
+4. 给出相关笔记的ID名称（JSON格式），格式：[RELATED_NOTES:name1，name2]
 
 ## 摘要输出格式
 当进行摘要时，请按以下结构输出：
@@ -78,7 +78,7 @@ ${notesContext}
 ${query}
 
 请根据用户的请求，智能识别意图（检索/摘要/聚合），并给出结构化的回答。
-记得在回答末尾附上相关笔记ID：[RELATED_NOTES:id1,id2]`;
+记得在回答末尾附上相关笔记名称：[RELATED_NOTES:name1，name2]`;
 
     // 调用豆包 AI API
     const response = await fetch(DOUBAO_API_URL, {

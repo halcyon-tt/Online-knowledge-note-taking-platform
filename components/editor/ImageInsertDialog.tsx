@@ -23,6 +23,7 @@ export default function ImageInsertDialog({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
     // 清理对象 URL 防止内存泄漏
     useEffect(() => {
@@ -60,7 +61,8 @@ export default function ImageInsertDialog({
                 alert("图片大小不能超过5MB");
                 return;
             }
-
+            // 保存文件对象
+            setSelectedFile(file);
             // 创建本地预览
             // const reader = new FileReader();
             // reader.onload = (event) => {
@@ -77,28 +79,61 @@ export default function ImageInsertDialog({
 
     // 插入预览的图片
     const insertPreviewImage = useCallback(() => {
-        if (previewUrl) {
-            if (onInsert) {
-                onInsert(previewUrl);
-            } else {
-                editor?.chain().focus().setImage({ src: previewUrl }).run();
-            }
-            onClose();
+        if (selectedFile) {
+            // 使用FileReader读取为Base64
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                if (event.target?.result) {
+                    const base64 = event.target.result as string;
+                    // 插入编辑器（Base64格式）
+                    editor?.chain().focus().setImage({ src: base64 }).run();
+                    onClose();
+                }
+            };
+            reader.onerror = () => {
+                alert("图片读取失败，请重试");
+            };
+            reader.readAsDataURL(selectedFile);
         }
+        // if (previewUrl) {
+        //     if (onInsert) {
+        //         onInsert(previewUrl);
+        //     } else {
+        //         editor?.chain().focus().setImage({ src: previewUrl }).run();
+        //     }
+        //     onClose();
+        // }
     }, [editor, previewUrl, onClose]);
+
+    // 清理函数
+
 
     // 手动触发文件选择
     const handleSelectFile = () => {
         fileInputRef.current?.click();
     };
 
-    // 清除预览
-    const clearPreview = () => {
+    // 清理预览
+    const clearPreview = useCallback(() => {
+        if (previewUrl && previewUrl.startsWith("blob:")) {
+            URL.revokeObjectURL(previewUrl);
+        }
         setPreviewUrl(null);
+        setSelectedFile(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
-    };
+    }, [previewUrl]);
+
+    // 清理内存
+    useEffect(() => {
+        return () => {
+            if (previewUrl && previewUrl.startsWith("blob:")) {
+                URL.revokeObjectURL(previewUrl);
+            }
+        };
+    }, [previewUrl]);
+    
     // 处理键盘事件（ESC 关闭，Enter 确认）
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
