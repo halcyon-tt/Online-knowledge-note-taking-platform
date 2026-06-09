@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { X, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface ImageInsertDialogProps {
     editor: any;
@@ -51,13 +52,13 @@ export default function ImageInsertDialog({
 
             // 验证文件类型
             if (!allowedTypes.includes(file.type)) {
-                alert("请选择图片文件 (JPG, PNG, GIF等)");
+                toast.error("请选择图片文件 (JPG、PNG、GIF 等)");
                 return;
             }
 
             // 验证文件大小（限制5MB）
-            if (file.size > 5 * 1024 * 1024) {
-                alert("图片大小不能超过5MB");
+            if (file.size > maxSize) {
+                toast.error(`图片大小不能超过 ${Math.round(maxSize / 1024 / 1024)}MB`);
                 return;
             }
 
@@ -72,7 +73,7 @@ export default function ImageInsertDialog({
             const objectUrl = URL.createObjectURL(file);
             setPreviewUrl(objectUrl);
         },
-        []
+        [allowedTypes, maxSize]
     );
 
     // 插入预览的图片
@@ -85,7 +86,7 @@ export default function ImageInsertDialog({
             }
             onClose();
         }
-    }, [editor, previewUrl, onClose]);
+    }, [editor, onClose, onInsert, previewUrl]);
 
     // 手动触发文件选择
     const handleSelectFile = () => {

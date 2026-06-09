@@ -3,7 +3,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { Provider } from '@radix-ui/react-tooltip';
 
 interface AuthContextType {
     user: User | null;
@@ -41,10 +40,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
      */
     const refreshUser = async () => {
         const supabase = createClient(); // 创建Supabase客户端实例
+        if (!supabase) {
+            setUser(null);
+            setLoading(false);
+            return;
+        }
         // 从Supabase获取当前用户信息
         // 使用解构赋值直接获取user对象，是当前会话的用户信息、认证用户的基本信息
         const { data: { user } } = await supabase.auth.getUser();
         setUser(user); // 更新用户状态
+        setLoading(false);
     };
 
     // 使用useEffect在组件挂载时执行初始化操作
@@ -54,6 +59,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // 监听认证状态变化
         const supabase = createClient();
+        if (!supabase) {
+            setUser(null);
+            setLoading(false);
+            return;
+        }
         // 订阅认证状态变化事件，实时性
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (_event: any, session: { user: any; }) => {
@@ -70,6 +80,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const signIn = useCallback(async (provider = 'github') => {
         const supabase = createClient();
+        if (!supabase) {
+            console.warn('Supabase is not configured; signIn is unavailable in localStorage mode.');
+            return;
+        }
         // 调用Supabase的登录功能
         const { user, error } = await supabase.auth.signIn({
             provider: provider,
@@ -86,6 +100,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // 用户登出的异步函数
     const signOut = useCallback(async () => {
         const supabase = createClient();
+        if (!supabase) {
+            setUser(null);
+            return;
+        }
         // 调用Supabase的登出功能
         await supabase.auth.signOut();
         // 清除本地用户状态

@@ -30,19 +30,6 @@ export const useEditorOperations= (editor: any) => {
     const redo = () => editor?.chain().focus().redo().run();
     const setHorizontalRule = () =>
         editor?.chain().focus().setHorizontalRule().run();
-    /**
-     * 插入链接功能
-     * 该组件用于在富文本编辑器中插入链接
-     * 用户可以选择文本并添加链接地址
-     */
-    // 插入链接
-    const insertLink = useCallback(() => {
-        const url = window.prompt("请输入 URL");
-        if (url) {
-            editor?.chain().focus().setLink({ href: url }).run();
-        }
-    }, [editor]);
-
     // 清除格式
     const clearFormat = () => {
         editor?.chain().focus().clearNodes().unsetAllMarks().run();
@@ -70,7 +57,6 @@ export const useEditorOperations= (editor: any) => {
         setParagraph,
         undo,
         redo,
-        setHorizontalRule,
-        insertLink
+        setHorizontalRule
     }
 }

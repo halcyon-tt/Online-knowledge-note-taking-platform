@@ -10,6 +10,7 @@ import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signInWithEmail, signInWithGitHub } from "@/lib/auth-utils";
+import { toast } from "sonner";
 // import { createClient } from "@/lib/supabase.client";
 
 export default function SignIn() {
@@ -23,10 +24,10 @@ export default function SignIn() {
         try {
             setLoading(true);
             await signInWithEmail(email, password);
-            alert("登录成功！");
+            toast.success("登录成功");
             router.push("/");
         } catch (error: any) {
-            alert(error.message || "登录失败，请检查邮箱和密码");
+            toast.error(error.message || "登录失败，请检查邮箱和密码");
         } finally {
             setLoading(false);
         }
@@ -38,7 +39,7 @@ export default function SignIn() {
             await signInWithGitHub();
             // 注意：GitHub登录会重定向，所以这里不需要额外处理
         } catch (error: any) {
-            alert(error.message || "GitHub登录失败");
+            toast.error(error.message || "GitHub 登录失败");
             setLoading(false);
         }
     };

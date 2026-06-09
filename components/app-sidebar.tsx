@@ -40,6 +40,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useCurrentFolderIdStore } from "@/lib/store/folders";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotes } from "@/contexts/NotesContext"; // 新增导入
+import { toast } from "sonner";
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -112,7 +113,7 @@ export function AppSidebar() {
         }
       } catch (error) {
         console.error("Unexpected error:", error);
-        alert("查询文件夹时发生未知错误");
+        toast.error("查询文件夹时发生未知错误");
         setFolderNoteIds(null);
       }
     }
@@ -245,7 +246,7 @@ export function AppSidebar() {
       const supabase = createClient();
       if (!supabase) {
         console.error("No Supabase client");
-        alert("系统错误：无法连接到数据库");
+        toast.error("系统错误：无法连接到数据库");
         return;
       }
 
@@ -254,7 +255,7 @@ export function AppSidebar() {
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
-          alert("请先登录");
+          toast.info("请先登录");
           router.push("/login");
           return;
         }
@@ -276,7 +277,7 @@ export function AppSidebar() {
 
         if (error) {
           console.error("创建笔记失败:", error);
-          alert("创建笔记失败: " + error.message);
+          toast.error("创建笔记失败: " + error.message);
           return;
         }
 
@@ -286,7 +287,7 @@ export function AppSidebar() {
         }
       } catch (error: any) {
         console.error("Unexpected error:", error);
-        alert("创建笔记时发生未知错误");
+        toast.error("创建笔记时发生未知错误");
       }
     }
     if (isMobile) {
@@ -304,7 +305,7 @@ export function AppSidebar() {
 
       const userId = await getUserId();
       if (!userId) {
-        alert("请先登录");
+        toast.info("请先登录");
         return;
       }
 
@@ -316,7 +317,7 @@ export function AppSidebar() {
 
       if (error) {
         console.error("Error creating tag:", error);
-        alert("创建标签失败: " + error.message);
+        toast.error("创建标签失败: " + error.message);
         return;
       }
 

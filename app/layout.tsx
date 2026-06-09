@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 import { AuthProvider } from '@/contexts/AuthContext';
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -32,8 +33,8 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
-      <AuthProvider>
-        <body className="font-sans antialiased">
+      <body className="font-sans antialiased">
+        <AuthProvider>
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
@@ -43,8 +44,9 @@ export default function RootLayout({
             {children}
           </ThemeProvider>
           <Analytics />
-        </body>
-      </AuthProvider>
+          <Toaster richColors position="top-center" />
+        </AuthProvider>
+      </body>
     </html>
   );
 }

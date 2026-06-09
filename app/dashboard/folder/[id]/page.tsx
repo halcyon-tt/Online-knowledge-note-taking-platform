@@ -13,6 +13,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext"; // ✅ 已导入
+import { NoteNameDialog } from "@/components/note-name-dialog";
+import { toast } from "sonner";
 
 import {
   ArrowLeft,
@@ -43,6 +45,7 @@ export default function FolderPage({ params }: PageProps) {
   const [folder, setFolder] = useState<Folder | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showRenameDialog, setShowRenameDialog] = useState(false);
   const useLocalStorage = !isSupabaseConfigured();
   const { setCurrentFolderId } = useCurrentFolderIdStore();
   const { user, loading: authLoading } = useAuth(); // ✅ 从 Context 获取用户
@@ -145,8 +148,11 @@ export default function FolderPage({ params }: PageProps) {
   // 重命名文件夹 - ✅ 修改
   const handleRename = async () => {
     if (!folder) return;
-    const newName = window.prompt("请输入新的文件夹名:", folder.name);
-    if (!newName || newName === folder.name) return;
+    setShowRenameDialog(true);
+  };
+
+  const handleConfirmRename = async (newName: string) => {
+    if (!folder || newName === folder.name) return;
 
     if (useLocalStorage) {
       const updatedFolder = {
@@ -156,6 +162,7 @@ export default function FolderPage({ params }: PageProps) {
       };
       updateLocalFolder(updatedFolder);
       setFolder(updatedFolder);
+      toast.success("文件夹已重命名");
     } else {
       const supabase = createClient();
       if (!supabase || !user) return; // ✅ 检查 user
@@ -171,6 +178,9 @@ export default function FolderPage({ params }: PageProps) {
 
       if (!error && data) {
         setFolder(data as Folder);
+        toast.success("文件夹已重命名");
+      } else if (error) {
+        toast.error("重命名文件夹失败");
       }
     }
   };
@@ -178,37 +188,59 @@ export default function FolderPage({ params }: PageProps) {
   // 删除文件夹 - ✅ 修改
   const handleDelete = async () => {
     if (!folder) return;
-    const confirmed = window.confirm(
-      `确定要删除文件夹 "${folder.name}" 吗？文件夹内的笔记不会被删除。`
-    );
-    if (!confirmed) return;
+    toast(`确定要删除文件夹「${folder.name}」吗？文件夹内的笔记不会被删除。`, {
+      action: {
+        label: "删除",
+        onClick: async () => {
+          if (useLocalStorage) {
+            deleteLocalFolder(id);
+            toast.success("文件夹已删除");
+            router.push("/dashboard");
+          } else {
+            const supabase = createClient();
+            if (!supabase || !user) return;
 
-    if (useLocalStorage) {
-      deleteLocalFolder(id);
-      router.push("/dashboard");
-    } else {
-      const supabase = createClient();
-      if (!supabase || !user) return; // ✅ 检查 user
+            const { error } = await supabase
+              .from("folders")
+              .delete()
+              .eq("id", id)
+              .eq("user_id", user.id);
 
-      // ✅ 直接使用 user.id
-      const { error } = await supabase
-        .from("folders")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", user.id); // ✅ 直接使用 user.id
-
-      if (!error) {
-        router.push("/dashboard");
-      }
-    }
+            if (!error) {
+              toast.success("文件夹已删除");
+              router.push("/dashboard");
+            } else {
+              toast.error("删除文件夹失败");
+            }
+          }
+        },
+      },
+      cancel: {
+        label: "取消",
+        onClick: () => {},
+      },
+    });
   };
 
   // 从文件夹移出笔记 - ✅ 修改
   const handleRemoveNote = async (noteId: string) => {
     if (!folder) return;
-    const confirmed = window.confirm("确定要从文件夹中移除这个笔记吗？");
-    if (!confirmed) return;
+    toast("确定要从文件夹中移除这个笔记吗？", {
+      action: {
+        label: "移除",
+        onClick: async () => {
+          await removeNoteFromFolder(noteId);
+        },
+      },
+      cancel: {
+        label: "取消",
+        onClick: () => {},
+      },
+    });
+  };
 
+  const removeNoteFromFolder = async (noteId: string) => {
+    if (!folder) return;
     const currentNoteIds = folder.notes_id
       ? folder.notes_id.split(",").filter((nid) => nid.trim() !== "")
       : [];
@@ -223,6 +255,7 @@ export default function FolderPage({ params }: PageProps) {
       updateLocalFolder(updatedFolder);
       setFolder(updatedFolder);
       setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      toast.success("已从文件夹移除");
     } else {
       const supabase = createClient();
       if (!supabase || !user) return; // ✅ 检查 user
@@ -239,26 +272,35 @@ export default function FolderPage({ params }: PageProps) {
       if (!error && data) {
         setFolder(data as Folder);
         setNotes((prev) => prev.filter((n) => n.id !== noteId));
+        toast.success("已从文件夹移除");
+      } else if (error) {
+        toast.error("移除笔记失败");
       }
     }
   };
 
   // 删除笔记 - ✅ 修改
   const handleDeleteNote = async (noteId: string) => {
-    if (folder) {
-      let notes_string = folder.notes_id.split(",");
-      let result = "";
-      if (notes_string.length > 2) {
-        result = notes_string.filter((nid) => nid !== noteId).join(",");
-      } else {
-        result = notes_string[0];
-      }
-      folder.notes_id = result ? result : "";
-    }
+    if (!folder) return;
+
+    const updatedNotesId = (folder.notes_id || "")
+      .split(",")
+      .filter((nid) => nid.trim() !== "" && nid !== noteId)
+      .join(",");
+
+    const updatedFolder = {
+      ...folder,
+      notes_id: updatedNotesId,
+      updated_at: new Date().toISOString(),
+    };
+
     if (useLocalStorage) {
-      const notes = getLocalNotes().filter((n) => n.id !== noteId);
-      setNotes(notes);
-      localStorage.setItem("notes", JSON.stringify(notes));
+      const remainingNotes = getLocalNotes().filter((n) => n.id !== noteId);
+      localStorage.setItem("notes", JSON.stringify(remainingNotes));
+      updateLocalFolder(updatedFolder);
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      setFolder(updatedFolder);
+      toast.success("笔记已删除");
     } else {
       const supabase = createClient();
       if (!supabase || !user) return; // ✅ 检查 user
@@ -272,6 +314,7 @@ export default function FolderPage({ params }: PageProps) {
           .eq("user_id", user.id); // ✅ 直接使用 user.id
         if (error) {
           console.error("Error deleting note:", error);
+          toast.error("删除笔记失败");
           return;
         }
       }
@@ -279,19 +322,21 @@ export default function FolderPage({ params }: PageProps) {
         const { error } = await supabase
           .from("folders")
           .update({
-            notes_id: folder?.notes_id,
-            updated_at: new Date().toISOString(),
+            notes_id: updatedNotesId,
+            updated_at: updatedFolder.updated_at,
           })
           .eq("id", id)
           .eq("user_id", user.id); // ✅ 直接使用 user.id
         if (error) {
           console.error("Error deleting note:", error);
+          toast.error("更新文件夹失败");
           return;
         }
       }
       setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      setFolder(updatedFolder);
+      toast.success("笔记已删除");
     }
-    setFolder(folder);
   };
 
   // ✅ 改进：合并 loading 状态
@@ -442,6 +487,18 @@ export default function FolderPage({ params }: PageProps) {
           ))}
         </div>
       )}
+
+      <NoteNameDialog
+        open={showRenameDialog}
+        onOpenChange={setShowRenameDialog}
+        onConfirm={handleConfirmRename}
+        title="重命名文件夹"
+        description="请输入新的文件夹名称"
+        label="文件夹名称"
+        placeholder="输入文件夹名称..."
+        confirmLabel="保存"
+        defaultValue={folder?.name || ""}
+      />
     </div>
   );
 }

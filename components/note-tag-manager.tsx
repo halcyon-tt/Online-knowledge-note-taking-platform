@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/popover";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { getUserId } from "@/lib/auth-utils";
+import { toast } from "sonner";
 import {
   getLocalTags,
   addTagToNote,
@@ -142,7 +143,7 @@ export function NoteTagManager({
 
         const userId = await getUserId();
         if (!userId) {
-          alert("请先登录");
+          toast.info("请先登录");
           return;
         }
 
@@ -155,7 +156,7 @@ export function NoteTagManager({
 
         if (error) {
           console.error("添加标签失败:", error);
-          alert("添加标签失败: " + error.message);
+          toast.error("添加标签失败: " + error.message);
           return;
         }
 

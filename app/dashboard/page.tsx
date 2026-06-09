@@ -29,6 +29,8 @@ import {
   PaginationEllipsis,
 } from "@/components/ui/pagination";
 import { useNotes } from "@/contexts/NotesContext"; // 新增导入
+import { NoteNameDialog } from "@/components/note-name-dialog";
+import { toast } from "sonner";
 
 const NOTES_PER_PAGE = 6;
 
@@ -42,6 +44,7 @@ export default function DashboardPage() {
   const [folderNoteIds, setFolderNoteIds] = useState<string[] | null>(null);
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
   const [draggingOverFolderId, setDraggingOverFolderId] = useState<string | null>(null);
+  const [showFolderDialog, setShowFolderDialog] = useState(false);
   const useLocalStorage = !isSupabaseConfigured();
   const { setCurrentFolderId } = useCurrentFolderIdStore();
 
@@ -248,7 +251,7 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        alert("请先登录");
+        toast.info("请先登录");
         router.push("/login");
         return;
       }
@@ -268,7 +271,7 @@ export default function DashboardPage() {
 
       if (error) {
         console.error("创建笔记失败:", error);
-        alert("创建笔记失败: " + error.message);
+        toast.error("创建笔记失败: " + error.message);
         return;
       }
 
@@ -281,15 +284,14 @@ export default function DashboardPage() {
 
   // 创建文件夹
   const handleCreateFolder = async () => {
-    const name = window.prompt("请输入文件夹名:");
-    if (!name || name.trim() === "") {
-      window.alert("文件夹名不能为空");
-      return;
-    }
+    setShowFolderDialog(true);
+  };
 
+  const handleConfirmCreateFolder = async (name: string) => {
     if (useLocalStorage) {
       const newFolder = createLocalFolder({ name });
       setFolders((prev) => [newFolder as Folder, ...prev]);
+      toast.success("文件夹已创建");
     } else {
       const supabase = createClient();
       if (!supabase) return;
@@ -298,7 +300,7 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        alert("请先登录");
+        toast.info("请先登录");
         router.push("/login");
         return;
       }
@@ -318,12 +320,13 @@ export default function DashboardPage() {
 
       if (error) {
         console.error("创建文件夹失败:", error);
-        alert("创建文件夹失败: " + error.message);
+        toast.error("创建文件夹失败: " + error.message);
         return;
       }
 
       if (data) {
         setFolders((prev) => [data as Folder, ...prev]);
+        toast.success("文件夹已创建");
       }
     }
   };
@@ -384,9 +387,9 @@ export default function DashboardPage() {
         );
 
         // 笔记列表会自动通过 Context 更新
-        alert(`笔记已添加到文件夹 ${targetFolder.name}`);
+        toast.success(`笔记已添加到文件夹 ${targetFolder.name}`);
       } else {
-        alert("该笔记已在此文件夹中");
+        toast.info("该笔记已在此文件夹中");
       }
     } else {
       const supabase = createClient();
@@ -394,7 +397,7 @@ export default function DashboardPage() {
 
       const userId = await getUserId();
       if (!userId) {
-        alert("请先登录");
+        toast.info("请先登录");
         return;
       }
 
@@ -418,7 +421,7 @@ export default function DashboardPage() {
 
         if (error) {
           console.error("更新文件夹失败:", error);
-          alert("添加笔记到文件夹失败");
+          toast.error("添加笔记到文件夹失败");
           return;
         }
 
@@ -427,10 +430,10 @@ export default function DashboardPage() {
             prev.map((f) => (f.id === folderId ? (data as Folder) : f))
           );
 
-          alert(`笔记已添加到文件夹 ${targetFolder.name}`);
+          toast.success(`笔记已添加到文件夹 ${targetFolder.name}`);
         }
       } else {
-        alert("该笔记已在此文件夹中");
+        toast.info("该笔记已在此文件夹中");
       }
     }
 
@@ -636,6 +639,17 @@ export default function DashboardPage() {
           拖拽笔记到文件夹上进行添加
         </div>
       )}
+
+      <NoteNameDialog
+        open={showFolderDialog}
+        onOpenChange={setShowFolderDialog}
+        onConfirm={handleConfirmCreateFolder}
+        title="创建新文件夹"
+        description="请输入文件夹名称"
+        label="文件夹名称"
+        placeholder="输入文件夹名称..."
+        confirmLabel="创建"
+      />
     </div>
   );
 }

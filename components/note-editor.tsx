@@ -31,7 +31,6 @@ import {
   Minus,
   MoreHorizontal,
   X,
-  Sparkles,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -41,6 +40,16 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { getLocalNotes } from "@/lib/local-storage";
 import { useRouter } from "next/navigation";
@@ -48,6 +57,7 @@ import MarkdownIt from "markdown-it";
 import { useEditorOperations } from "@/hooks/useEditorOperations";
 import { useEditorShortcuts } from "@/hooks/useEditorShortcuts";
 import { AIPolishDialog } from "@/components/ai-polish-dialog";
+import { toast } from "sonner";
 
 interface TiptapProps {
   initialContent?: string;
@@ -65,13 +75,14 @@ export default function Tiptap({
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
-  // const [linkUrl, setLinkUrl] = useState("");
-  // const [showLinkModal, setShowLinkModal] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
   // const [showFontModal, setShowFontModal] = useState(false);
   // const [fontFamily, setFontFamily] = useState("");
   const useLocalStorage = !isSupabaseConfigured();
   const [showPolishDialog, setShowPolishDialog] = useState(false);
   const [selectedText, setSelectedText] = useState("");
+  const [polishRange, setPolishRange] = useState<{ from: number; to: number } | null>(null);
 
   const router = useRouter();
 
@@ -167,22 +178,23 @@ export default function Tiptap({
 
     const content = editor.getHTML();
     localStorage.setItem("tiptap-content", content);
-    alert("内容已保存到本地存储！");
+    toast.success("内容已保存到本地存储");
   }, [editor]);
   // 复制内容
-  const copyToClipboard = async () => {
+  const copyToClipboard = useCallback(async () => {
     if (!editor) return;
 
     const text = editor.getText();
     try {
       await navigator.clipboard.writeText(text);
-      alert("内容已复制到剪贴板！");
+      toast.success("内容已复制到剪贴板");
     } catch (err) {
       console.error("复制失败:", err);
+      toast.error("复制失败，请重试");
     }
-  };
+  }, [editor]);
   // 导出为Markdown
-  const exportToMarkdown = () => {
+  const exportToMarkdown = useCallback(() => {
     if (!editor) return "";
 
     const html = editor.getHTML();
@@ -229,38 +241,65 @@ export default function Tiptap({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  };
+    toast.success("Markdown 已导出");
+  }, [editor]);
 
   // 重置编辑器
-  const resetEditor = () => {
-    if (confirm("确定要清空编辑器吗？")) {
-      editor?.commands.clearContent();
-      setContent("");
-    }
-  };
+  const resetEditor = useCallback(() => {
+    toast("确定要清空编辑器吗？", {
+      action: {
+        label: "清空",
+        onClick: () => {
+          editor?.commands.clearContent();
+          setContent("");
+          toast.success("编辑器已清空");
+        },
+      },
+      cancel: {
+        label: "取消",
+        onClick: () => {},
+      },
+    });
+  }, [editor]);
 
 
   const openPolishDialog = useCallback(() => {
     if (!editor) return;
     const { from, to } = editor.state.selection;
     if (from === to) {
-      alert("请先选中需要润色的文本");
+      toast.info("请先选中需要润色的文本");
       return;
     }
     const text = editor.state.doc.textBetween(from, to, " ");
     if (!text.trim()) {
-      alert("请先选中需要润色的文本");
+      toast.info("请先选中需要润色的文本");
       return;
     }
+    setPolishRange({ from, to });
     setSelectedText(text);
     setShowPolishDialog(true);
   }, [editor]);
 
   const replaceWithPolish = useCallback((polishedText: string) => {
-    if (!editor) return;
-    const { from, to } = editor.state.selection;
-    editor.chain().focus().deleteRange({ from, to }).insertContent(polishedText).run();
-  }, [editor]);
+    if (!editor || !polishRange) return;
+    editor
+      .chain()
+      .focus()
+      .deleteRange(polishRange)
+      .insertContent(polishedText)
+      .run();
+    setPolishRange(null);
+  }, [editor, polishRange]);
+
+  const insertPolishBelow = useCallback((polishedText: string) => {
+    if (!editor || !polishRange) return;
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(polishRange.to, `<p>${polishedText}</p>`)
+      .run();
+    setPolishRange(null);
+  }, [editor, polishRange]);
 
   // 3. 封装所有自定义回调
   const customCallbacks = useMemo(() => ({
@@ -288,12 +327,40 @@ export default function Tiptap({
     setShowImageModal(true);
   }, []);
 
+  const openLinkDialog = useCallback(() => {
+    if (!editor) return;
+    const { from, to } = editor.state.selection;
+    if (from === to && !editor.isActive("link")) {
+      toast.info("请先选中需要添加链接的文本");
+      return;
+    }
+
+    setLinkUrl(editor.getAttributes("link").href || "");
+    setShowLinkDialog(true);
+  }, [editor]);
+
+  const applyLink = useCallback(() => {
+    if (!editor) return;
+    const href = linkUrl.trim();
+    if (!href) {
+      toast.info("请输入链接地址");
+      return;
+    }
+
+    editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
+    setShowLinkDialog(false);
+    setLinkUrl("");
+    toast.success("链接已添加");
+  }, [editor, linkUrl]);
+
   // 从本地存储加载
   const loadFromLocalStorage = () => {
     const savedContent = localStorage.getItem("tiptap-content");
     if (savedContent && editor) {
       editor.commands.setContent(savedContent);
-      alert("内容已从本地存储加载！");
+      toast.success("内容已从本地存储加载");
+    } else {
+      toast.info("没有可加载的本地内容");
     }
   };
 
@@ -316,22 +383,36 @@ export default function Tiptap({
   const handleDeleteNote = async (noteId: string | undefined) => {
     if (!noteId) return;
 
-    const confirmed = window.confirm("确定要删除这篇笔记吗？");
-    if (!confirmed) return;
+    toast("确定要删除这篇笔记吗？", {
+      action: {
+        label: "删除",
+        onClick: async () => {
+          if (useLocalStorage) {
+            const notes = getLocalNotes().filter((n) => n.id !== noteId);
+            localStorage.setItem("notes", JSON.stringify(notes));
+          } else {
+            const supabase = createClient();
+            if (!supabase) {
+              toast.error("数据库未配置，无法删除笔记");
+              return;
+            }
+            const { error } = await supabase.from("notes").delete().eq("id", noteId);
+            if (error) {
+              console.error("Error deleting note:", error);
+              toast.error("删除笔记失败");
+              return;
+            }
+          }
 
-    if (useLocalStorage) {
-      const notes = getLocalNotes().filter((n) => n.id !== noteId);
-      localStorage.setItem("notes", JSON.stringify(notes));
-    } else {
-      const supabase = createClient();
-      if (!supabase) return;
-      const { error } = await supabase.from("notes").delete().eq("id", noteId);
-      if (error) {
-        console.error("Error deleting note:", error);
-        return;
-      }
-    }
-    router.push("/dashboard");
+          toast.success("笔记已删除");
+          router.push("/dashboard");
+        },
+      },
+      cancel: {
+        label: "取消",
+        onClick: () => {},
+      },
+    });
   };
 
   return (
@@ -437,7 +518,7 @@ export default function Tiptap({
             {/* 链接和图片 */}
             <div className="flex items-center space-x-0.5 md:space-x-1 border-r border-gray-200 dark:border-gray-800 pr-1 md:pr-3">
               <button
-                onClick={operations.insertLink}
+                onClick={openLinkDialog}
                 className={`p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${editor.isActive("link") ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
                 title="插入链接"
               >
@@ -492,15 +573,15 @@ export default function Tiptap({
               <Highlighter className="w-5 h-5" />
             </button>
 
-            {/* AI 润色 */}
+            {/* 润色 */}
             <div className="flex items-center space-x-1 border-l border-gray-200 dark:border-gray-800 pl-1 md:pl-3">
               <button
                 onClick={openPolishDialog}
-                className="flex items-center gap-1 px-2 py-1.5 rounded bg-gradient-to-r from-purple-500/10 to-blue-500/10 hover:from-purple-500/20 hover:to-blue-500/20 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 transition-all duration-200 text-xs md:text-sm font-medium"
-                title="AI 润色 (Ctrl+Shift+P)"
+                className="flex items-center gap-1 p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200"
+                title="润色 (Ctrl+Shift+P)"
               >
-                <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                <span className="hidden sm:inline">AI 润色</span>
+                <Type className="w-4 h-4 md:w-5 md:h-5" />
+                <span className="hidden lg:inline text-xs md:text-sm">润色</span>
               </button>
             </div>
           </div>
@@ -598,8 +679,49 @@ export default function Tiptap({
         onOpenChange={setShowPolishDialog}
         selectedText={selectedText}
         onConfirm={replaceWithPolish}
-        onReject={() => setShowPolishDialog(false)}
+        onInsertBelow={insertPolishBelow}
+        onReject={() => {
+          setPolishRange(null);
+          setShowPolishDialog(false);
+        }}
       />
+
+      <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>插入链接</DialogTitle>
+            <DialogDescription>为当前选中文本添加链接地址。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 py-2">
+            <Label htmlFor="link-url">链接地址</Label>
+            <Input
+              id="link-url"
+              value={linkUrl}
+              onChange={(event) => setLinkUrl(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  applyLink();
+                }
+              }}
+              placeholder="https://example.com"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowLinkDialog(false)}
+            >
+              取消
+            </Button>
+            <Button type="button" onClick={applyLink} disabled={!linkUrl.trim()}>
+              应用
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 图片插入对话框 */}
       {showImageModal && (

@@ -1,27 +1,30 @@
 "use client";
 
 import type React from "react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Sparkles, RefreshCw, Check, X } from "lucide-react";
+import { Copy, Loader2, RefreshCw, Check, X, CornerDownLeft, Type } from "lucide-react";
+import { polishText } from "@/lib/ai-client";
+import type { PolishStyle } from "@/types/ai";
+import { toast } from "sonner";
 
 interface AIPolishDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedText: string;
   onConfirm: (polishedText: string) => void;
+  onInsertBelow: (polishedText: string) => void;
   onReject: () => void;
 }
-
-type PolishStyle = "fluent" | "professional" | "concise" | "casual";
 
 const STYLE_OPTIONS: { value: PolishStyle; label: string; desc: string }[] = [
   { value: "fluent", label: "流畅优化", desc: "修正语病，通顺自然" },
@@ -35,35 +38,38 @@ export function AIPolishDialog({
   onOpenChange,
   selectedText,
   onConfirm,
+  onInsertBelow,
   onReject,
 }: AIPolishDialogProps) {
   const [style, setStyle] = useState<PolishStyle>("fluent");
   const [polishedText, setPolishedText] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const handlePolish = useCallback(async () => {
     if (!selectedText.trim()) return;
+    abortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
     setLoading(true);
     setError(null);
     setPolishedText(null);
 
     try {
-      const res = await fetch("/api/ai-polish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: selectedText, style }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        throw new Error(data.error || "润色请求失败");
-      }
-      setPolishedText(data.polished);
+      const data = await polishText(
+        { text: selectedText, style },
+        abortController.signal
+      );
+      setPolishedText(data.polishedText);
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       setError(err instanceof Error ? err.message : "润色服务异常");
     } finally {
       setLoading(false);
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null;
+      }
     }
   }, [selectedText, style]);
 
@@ -74,19 +80,52 @@ export function AIPolishDialog({
     }
   };
 
+  const handleInsertBelow = () => {
+    if (polishedText) {
+      onInsertBelow(polishedText);
+      onOpenChange(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!polishedText) return;
+    try {
+      await navigator.clipboard.writeText(polishedText);
+      toast.success("润色结果已复制");
+    } catch {
+      toast.error("复制失败，请重试");
+    }
+  };
+
   const handleReject = () => {
+    abortControllerRef.current?.abort();
     onReject();
     onOpenChange(false);
   };
+
+  useEffect(() => {
+    if (!open) {
+      abortControllerRef.current?.abort();
+    }
+  }, [open]);
+
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            AI 润色
+            <Type className="h-5 w-5 text-muted-foreground" />
+            润色
           </DialogTitle>
+          <DialogDescription>
+            选择语言风格，预览结果后再决定如何应用。
+          </DialogDescription>
         </DialogHeader>
 
         {/* Style selector */}
@@ -94,13 +133,17 @@ export function AIPolishDialog({
           {STYLE_OPTIONS.map((opt) => (
             <Button
               key={opt.value}
-              variant={style === opt.value ? "default" : "outline"}
+              variant="outline"
               size="sm"
               onClick={() => {
                 setStyle(opt.value);
                 setPolishedText(null);
               }}
-              className="bg-transparent"
+              className={
+                style === opt.value
+                  ? "border-foreground bg-foreground text-background hover:bg-foreground/90 hover:text-background"
+                  : "bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+              }
             >
               {opt.label}
             </Button>
@@ -138,7 +181,7 @@ export function AIPolishDialog({
           ) : (
             <div className="flex items-center justify-center h-full py-8">
               <p className="text-sm text-muted-foreground">
-                选择润色风格后点击 "开始润色"
+                选择润色风格后点击“开始润色”
               </p>
             </div>
           )}
@@ -155,6 +198,14 @@ export function AIPolishDialog({
                 <RefreshCw className="h-4 w-4 mr-1" />
                 重新生成
               </Button>
+              <Button variant="outline" onClick={handleCopy} className="bg-transparent">
+                <Copy className="h-4 w-4 mr-1" />
+                复制
+              </Button>
+              <Button variant="outline" onClick={handleInsertBelow} className="bg-transparent">
+                <CornerDownLeft className="h-4 w-4 mr-1" />
+                插入下方
+              </Button>
               <Button onClick={handleConfirm}>
                 <Check className="h-4 w-4 mr-1" />
                 确认替换
@@ -167,7 +218,7 @@ export function AIPolishDialog({
                 取消
               </Button>
               <Button onClick={handlePolish} disabled={loading}>
-                <Sparkles className="h-4 w-4 mr-1" />
+                <Type className="h-4 w-4 mr-1" />
                 开始润色
               </Button>
             </>

@@ -16,6 +16,7 @@ import {
   SidebarGroupLabel,
 } from "@/components/ui/sidebar";
 import type { Tag as TagType } from "@/types/note";
+import { toast } from "sonner";
 
 interface SidebarTagsSectionProps {
   tags: TagType[];
@@ -43,7 +44,7 @@ export function SidebarTagsSection({
     if (!trimmedName) return;
 
     if (tags.some((t) => t.name === trimmedName)) {
-      alert("标签已存在");
+      toast.info("标签已存在");
       return;
     }
 
