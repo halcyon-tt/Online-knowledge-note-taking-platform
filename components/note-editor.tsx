@@ -31,6 +31,7 @@ import {
   Minus,
   MoreHorizontal,
   X,
+  Sparkles,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -46,6 +47,7 @@ import { useRouter } from "next/navigation";
 import MarkdownIt from "markdown-it";
 import { useEditorOperations } from "@/hooks/useEditorOperations";
 import { useEditorShortcuts } from "@/hooks/useEditorShortcuts";
+import { AIPolishDialog } from "@/components/ai-polish-dialog";
 
 interface TiptapProps {
   initialContent?: string;
@@ -68,6 +70,8 @@ export default function Tiptap({
   // const [showFontModal, setShowFontModal] = useState(false);
   // const [fontFamily, setFontFamily] = useState("");
   const useLocalStorage = !isSupabaseConfigured();
+  const [showPolishDialog, setShowPolishDialog] = useState(false);
+  const [selectedText, setSelectedText] = useState("");
 
   const router = useRouter();
 
@@ -236,13 +240,36 @@ export default function Tiptap({
   };
 
 
+  const openPolishDialog = useCallback(() => {
+    if (!editor) return;
+    const { from, to } = editor.state.selection;
+    if (from === to) {
+      alert("请先选中需要润色的文本");
+      return;
+    }
+    const text = editor.state.doc.textBetween(from, to, " ");
+    if (!text.trim()) {
+      alert("请先选中需要润色的文本");
+      return;
+    }
+    setSelectedText(text);
+    setShowPolishDialog(true);
+  }, [editor]);
+
+  const replaceWithPolish = useCallback((polishedText: string) => {
+    if (!editor) return;
+    const { from, to } = editor.state.selection;
+    editor.chain().focus().deleteRange({ from, to }).insertContent(polishedText).run();
+  }, [editor]);
+
   // 3. 封装所有自定义回调
   const customCallbacks = useMemo(() => ({
-    saveToLocalStorage,    // ← 这里提供saveToLocalStorage的实现
+    saveToLocalStorage,
     copyToClipboard,
     exportToMarkdown,
     resetEditor,
-  }), [saveToLocalStorage, copyToClipboard, exportToMarkdown, resetEditor]);
+    openAIPolish: openPolishDialog,
+  }), [saveToLocalStorage, copyToClipboard, exportToMarkdown, resetEditor, openPolishDialog]);
 
   // 4. 启用快捷键系统
   useEditorShortcuts(editor, operations, customCallbacks);
@@ -464,6 +491,18 @@ export default function Tiptap({
             >
               <Highlighter className="w-5 h-5" />
             </button>
+
+            {/* AI 润色 */}
+            <div className="flex items-center space-x-1 border-l border-gray-200 dark:border-gray-800 pl-1 md:pl-3">
+              <button
+                onClick={openPolishDialog}
+                className="flex items-center gap-1 px-2 py-1.5 rounded bg-gradient-to-r from-purple-500/10 to-blue-500/10 hover:from-purple-500/20 hover:to-blue-500/20 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 transition-all duration-200 text-xs md:text-sm font-medium"
+                title="AI 润色 (Ctrl+Shift+P)"
+              >
+                <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                <span className="hidden sm:inline">AI 润色</span>
+              </button>
+            </div>
           </div>
 
           {/* 操作按钮栏 */}
@@ -552,6 +591,15 @@ export default function Tiptap({
           <EditorContent editor={editor} />
         )}
       </div>
+
+      {/* AI 润色对话框 */}
+      <AIPolishDialog
+        open={showPolishDialog}
+        onOpenChange={setShowPolishDialog}
+        selectedText={selectedText}
+        onConfirm={replaceWithPolish}
+        onReject={() => setShowPolishDialog(false)}
+      />
 
       {/* 图片插入对话框 */}
       {showImageModal && (

@@ -10,9 +10,10 @@ export type ShortcutAction =
     | 'undo'
     | 'redo'
     | 'saveToLocalStorage'
-    | 'copyToClipboard' // 添加复制到剪贴板操作
+    | 'copyToClipboard'
     | 'exportToMarkdown'
-    | 'resetEditor';
+    | 'resetEditor'
+    | 'openAIPolish';
 
 // 定义快捷键配置的结构
 export interface ShortcutConfig {
@@ -90,6 +91,13 @@ export const defaultShortcuts: ShortcutConfig[] = [
         shiftKey: true,
         action: 'exportToMarkdown',
         description: '导出为Markdown'
+    },
+    {
+        key: 'p',
+        ctrlKey: true,
+        shiftKey: true,
+        action: 'openAIPolish',
+        description: 'AI 润色'
     },
 ];
 
