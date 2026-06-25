@@ -74,8 +74,8 @@ export function NoteTagManager({
   }, [noteId]);
 
   // 添加标签
-  const handleAddTag = async (tagId: number) => {
-    const tagData = tags.find((t) => t.id === tagId);
+  const handleAddTag = async (tagId: string | number) => {
+    const tagData = tags.find((t) => String(t.id) === String(tagId));
     if (!tagData) return;
 
     // 检查是否已添加

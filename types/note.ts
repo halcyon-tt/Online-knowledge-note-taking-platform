@@ -1,24 +1,23 @@
 export interface Note {
-  id?: number;
+  id?: string;
   title?: string;
   content?: string;
-  tags?: string[]; // 添加标签字段
+  tags?: string[];
   created_at?: string;
   updated_at?: string;
 }
 
 export interface Tag {
-  id: number;
+  id: string;
   user_id?: string;
   name: string;
   color: string;
 }
 
 export interface Folder {
-  id: number;
-  // user_id: string;
+  id: string;
   name: string;
-  notes_id: string; //用逗号分割的笔记ID列表
+  notes_id: string;
   created_at: string;
   updated_at: string;
 }

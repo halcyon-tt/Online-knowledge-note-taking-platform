@@ -50,7 +50,7 @@ export function AppSidebar() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [tags, setTags] = useState<TagType[]>([]);
-  const [selectedTags, setSelectedTags] = useState<number[]>([]);
+  const [selectedTags, setSelectedTags] = useState<(string | number)[]>([]);
   const [folderNoteIds, setFolderNoteIds] = useState<string[] | null>(null);
   const [filteredNotes, setFilteredNotes] = useState<Note[]>([]);
   const [showNameDialog, setShowNameDialog] = useState(false);
@@ -114,7 +114,7 @@ export function AppSidebar() {
     if (selectedTags.length === 0) return null;
 
     const selectedTagNames = selectedTags
-      .map((tagId) => tags.find((t) => t.id === tagId)?.name)
+      .map((tagId) => tags.find((t) => String(t.id) === String(tagId))?.name)
       .filter(Boolean) as string[];
 
     return new Set(
@@ -123,7 +123,7 @@ export function AppSidebar() {
           note.tags?.some((tag) => selectedTagNames.includes(tag))
         )
         .map((note) => note.id)
-        .filter((id): id is number => id != null)
+        .filter((id): id is string => id != null)
     );
   }, [selectedTags, notes, tags]);
 
@@ -200,17 +200,17 @@ export function AppSidebar() {
     }
   };
 
-  const handleDeleteTag = async (tagId: number) => {
+  const handleDeleteTag = async (tagId: string | number) => {
     try {
       await apiDeleteTag(tagId);
-      setTags((prev) => prev.filter((t) => t.id !== tagId));
+      setTags((prev) => prev.filter((t) => String(t.id) !== String(tagId)));
       setSelectedTags((prev) => prev.filter((t) => t !== tagId));
     } catch (error) {
       console.error("删除标签失败:", error);
     }
   };
 
-  const toggleTagFilter = (tagId: number) => {
+  const toggleTagFilter = (tagId: string | number) => {
     setSelectedTags((prev) =>
       prev.includes(tagId) ? prev.filter((t) => t !== tagId) : [...prev, tagId]
     );
@@ -223,7 +223,7 @@ export function AppSidebar() {
     setEditingTitle(note.title || "");
   };
 
-  const handleSaveTitle = async (noteId: number) => {
+  const handleSaveTitle = async (noteId: string | number) => {
     const trimmedTitle = editingTitle.trim() || "未命名笔记";
 
     try {
@@ -241,7 +241,7 @@ export function AppSidebar() {
     setEditingTitle("");
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent, noteId: number) => {
+  const handleKeyDown = (e: React.KeyboardEvent, noteId: string | number) => {
     if (e.key === "Enter") {
       e.preventDefault();
       handleSaveTitle(noteId);
@@ -283,7 +283,7 @@ export function AppSidebar() {
     }
   };
 
-  const handleDeleteNote = async (noteId: number) => {
+  const handleDeleteNote = async (noteId: string | number) => {
     try {
       await deleteNote(noteId);
     } catch (error) {

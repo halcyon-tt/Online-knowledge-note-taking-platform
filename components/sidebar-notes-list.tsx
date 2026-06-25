@@ -17,16 +17,16 @@ interface SidebarNotesListProps {
   tags: TagType[];
   loading: boolean;
   searchQuery: string;
-  selectedTags: number[];
+  selectedTags: (string | number)[];
   pathname: string;
   editingId: string | null;
   editingTitle: string;
   onStartEdit: (e: React.MouseEvent, note: Note) => void;
-  onSaveTitle: (noteId: number) => void;
+  onSaveTitle: (noteId: string | number) => void;
   onCancelEdit: () => void;
   onTitleChange: (title: string) => void;
-  onKeyDown: (e: React.KeyboardEvent, noteId: number) => void;
-  handleDeleteNote: (noteId: number) => void;
+  onKeyDown: (e: React.KeyboardEvent, noteId: string | number) => void;
+  handleDeleteNote: (noteId: string | number) => void;
 }
 
 export function SidebarNotesList({

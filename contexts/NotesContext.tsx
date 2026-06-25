@@ -22,10 +22,10 @@ interface NotesContextType {
   refreshNotes: () => Promise<void>;
   createNote: (data: { title: string; content?: string }) => Promise<Note>;
   updateNote: (
-    noteId: number,
+    noteId: string | number,
     updates: Partial<{ title: string; content: string }>
   ) => Promise<void>;
-  deleteNote: (noteId: number) => Promise<void>;
+  deleteNote: (noteId: string | number) => Promise<void>;
 }
 
 const NotesContext = createContext<NotesContextType | undefined>(undefined);
@@ -76,23 +76,22 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   // 更新笔记：调 API + 更新本地 state
   const updateNote = useCallback(
     async (
-      noteId: number,
+      noteId: string | number,
       updates: Partial<{ title: string; content: string }>
     ) => {
-      await apiUpdateNote(Number(noteId), updates);
+      await apiUpdateNote(noteId, updates);
       setNotes((prev) =>
         prev.map((note) =>
-          note.id === noteId ? { ...note, ...updates } : note
+          String(note.id) === String(noteId) ? { ...note, ...updates } : note
         )
       );
     },
     []
   );
 
-  // 删除笔记：调 API + 更新本地 state
-  const deleteNote = useCallback(async (noteId: number) => {
-    await apiDeleteNote(Number(noteId));
-    setNotes((prev) => prev.filter((note) => note.id !== noteId));
+  const deleteNote = useCallback(async (noteId: string | number) => {
+    await apiDeleteNote(noteId);
+    setNotes((prev) => prev.filter((note) => String(note.id) !== String(noteId)));
   }, []);
 
   // 初始加载

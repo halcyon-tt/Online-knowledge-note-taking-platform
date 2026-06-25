@@ -20,10 +20,10 @@ import type { Tag as TagType } from "@/types/note";
 
 interface SidebarTagsSectionProps {
   tags: TagType[];
-  selectedTags: number[];
+  selectedTags: (string | number)[];
   onTagCreate: (name: string) => void;
-  onTagDelete: (tagId: number) => void;
-  onTagToggle: (tagId: number) => void;
+  onTagDelete: (tagId: string | number) => void;
+  onTagToggle: (tagId: string | number) => void;
   onClearFilter: () => void;
 }
 

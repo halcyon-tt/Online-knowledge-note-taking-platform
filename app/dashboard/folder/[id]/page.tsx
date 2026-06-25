@@ -11,8 +11,17 @@ import {
   updateFolderNotes,
 } from "@/lib/api/folders";
 import { fetchNote, deleteNote as apiDeleteNote } from "@/lib/api/notes";
+import {
+  getLocalFolder,
+  getLocalNotes,
+  updateLocalFolder,
+  deleteLocalFolder,
+} from "@/lib/local-storage";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
+
 import {
   ArrowLeft,
   FileText,
@@ -42,51 +51,92 @@ export default function FolderPage({ params }: PageProps) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const { setCurrentFolderId } = useCurrentFolderIdStore();
+  const { user, loading: authLoading } = useAuth();
+  const useLocalStorage = !isSupabaseConfigured();
 
   useEffect(() => {
-    async function loadFolder() {
-      try {
-        const folderData = await fetchFolder(Number(id));
-        setFolder(folderData);
+    if (!authLoading && !user && !useLocalStorage) {
+      router.push("/login");
+    }
+  }, [authLoading, user, useLocalStorage, router]);
 
-        // 获取文件夹内的笔记
-        if (folderData.notes_id) {
-          const noteIds = folderData.notes_id
-            .split(",")
-            .filter((nid) => nid.trim() !== "");
-          if (noteIds.length > 0) {
-            const results = await Promise.allSettled(
-              noteIds.map((nid) => fetchNote(Number(nid)))
-            );
-            const loadedNotes = results
-              .filter(
-                (r): r is PromiseFulfilledResult<Note> =>
-                  r.status === "fulfilled"
-              )
-              .map((r) => r.value);
-            setNotes(loadedNotes);
-          }
-        }
-      } catch (error) {
-        console.error("加载文件夹失败:", error);
+  useEffect(() => {
+    if ((user || useLocalStorage) && !authLoading) {
+      loadFolder();
+    }
+  }, [id, user, authLoading, useLocalStorage]);
+
+  async function loadFolder() {
+    if (useLocalStorage) {
+      const localFolder = getLocalFolder(id);
+      if (!localFolder) {
         router.push("/dashboard");
         return;
       }
+      setFolder(localFolder);
+
+      if (localFolder.notes_id) {
+        const noteIds = localFolder.notes_id
+          .split(",")
+          .filter((nid) => nid.trim() !== "");
+        const allNotes = getLocalNotes();
+        const folderNotes = allNotes.filter(
+          (note) => note.id && noteIds.includes(note.id)
+        );
+        setNotes(folderNotes);
+      }
       setLoading(false);
+      return;
     }
 
-    loadFolder();
-  }, [id, router]);
+    try {
+      const folderData = await fetchFolder(Number(id));
+      setFolder(folderData);
+
+      if (folderData.notes_id) {
+        const noteIds = folderData.notes_id
+          .split(",")
+          .filter((nid) => nid.trim() !== "");
+        if (noteIds.length > 0) {
+          const results = await Promise.allSettled(
+            noteIds.map((nid) => fetchNote(Number(nid)))
+          );
+          const loadedNotes = results
+            .filter(
+              (r): r is PromiseFulfilledResult<Note> =>
+                r.status === "fulfilled"
+            )
+            .map((r) => r.value);
+          setNotes(loadedNotes);
+        }
+      }
+    } catch (error) {
+      console.error("加载文件夹失败:", error);
+      router.push("/dashboard");
+      return;
+    }
+    setLoading(false);
+  }
 
   useEffect(() => {
     setCurrentFolderId(id);
   }, []);
 
-  // 重命名文件夹
   const handleRename = async () => {
     if (!folder) return;
     const newName = window.prompt("请输入新的文件夹名:", folder.name);
     if (!newName || newName === folder.name) return;
+
+    if (useLocalStorage) {
+      const updatedFolder = {
+        ...folder,
+        name: newName,
+        updated_at: new Date().toISOString(),
+      };
+      updateLocalFolder(updatedFolder);
+      setFolder(updatedFolder);
+      return;
+    }
 
     try {
       const updated = await updateFolder(Number(id), { name: newName });
@@ -97,13 +147,18 @@ export default function FolderPage({ params }: PageProps) {
     }
   };
 
-  // 删除文件夹
   const handleDelete = async () => {
     if (!folder) return;
     const confirmed = window.confirm(
       `确定要删除文件夹 "${folder.name}" 吗？文件夹内的笔记不会被删除。`
     );
     if (!confirmed) return;
+
+    if (useLocalStorage) {
+      deleteLocalFolder(id);
+      router.push("/dashboard");
+      return;
+    }
 
     try {
       await apiDeleteFolder(Number(id));
@@ -114,7 +169,6 @@ export default function FolderPage({ params }: PageProps) {
     }
   };
 
-  // 从文件夹移出笔记
   const handleRemoveNote = async (noteId: string) => {
     if (!folder) return;
     const confirmed = window.confirm("确定要从文件夹中移除这个笔记吗？");
@@ -124,6 +178,18 @@ export default function FolderPage({ params }: PageProps) {
       ? folder.notes_id.split(",").filter((nid) => nid.trim() !== "")
       : [];
     const newNoteIds = currentNoteIds.filter((nid) => nid !== noteId).join(",");
+
+    if (useLocalStorage) {
+      const updatedFolder = {
+        ...folder,
+        notes_id: newNoteIds,
+        updated_at: new Date().toISOString(),
+      };
+      updateLocalFolder(updatedFolder);
+      setFolder(updatedFolder);
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      return;
+    }
 
     try {
       const updated = await updateFolderNotes(Number(id), newNoteIds);
@@ -135,7 +201,6 @@ export default function FolderPage({ params }: PageProps) {
     }
   };
 
-  // 删除笔记
   const handleDeleteNote = async (noteId: string) => {
     if (!folder) return;
 
@@ -143,6 +208,13 @@ export default function FolderPage({ params }: PageProps) {
       .split(",")
       .filter((nid) => nid.trim() !== "" && nid !== noteId);
     const newNotesId = currentNoteIds.join(",");
+
+    if (useLocalStorage) {
+      const notes = getLocalNotes().filter((n) => n.id !== noteId);
+      setNotes(notes);
+      localStorage.setItem("notes", JSON.stringify(notes));
+      return;
+    }
 
     try {
       await apiDeleteNote(Number(noteId));
@@ -155,13 +227,23 @@ export default function FolderPage({ params }: PageProps) {
     }
   };
 
-  if (loading) {
+  const isLoading = loading || authLoading;
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">加载文件夹内容中...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (!user && !useLocalStorage) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-muted-foreground">请先登录</p>
       </div>
     );
   }
@@ -176,7 +258,6 @@ export default function FolderPage({ params }: PageProps) {
 
   return (
     <div className="p-4 md:p-6">
-      {/* 头部 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
         <div className="flex items-center gap-3">
           <Button
@@ -219,7 +300,6 @@ export default function FolderPage({ params }: PageProps) {
         </DropdownMenu>
       </div>
 
-      {/* 笔记列表 */}
       {notes.length === 0 ? (
         <div className="text-center py-12">
           <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -262,7 +342,6 @@ export default function FolderPage({ params }: PageProps) {
                   </p>
                 </CardContent>
               </Link>
-              {/* 删除按钮 */}
               <Button
                 variant="ghost"
                 size="icon"
@@ -275,7 +354,6 @@ export default function FolderPage({ params }: PageProps) {
               >
                 <Trash className="" />
               </Button>
-              {/* 移除按钮 */}
               <Button
                 variant="ghost"
                 size="icon"

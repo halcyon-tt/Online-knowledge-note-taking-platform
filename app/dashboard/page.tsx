@@ -53,7 +53,7 @@ export default function DashboardPage() {
   const [folderNoteIds, setFolderNoteIds] = useState<string[] | null>(null);
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
   const [draggingOverFolderId, setDraggingOverFolderId] = useState<
-    number | null
+    string | null
   >(null);
   const { setCurrentFolderId } = useCurrentFolderIdStore();
 
@@ -215,10 +215,10 @@ export default function DashboardPage() {
   };
 
   // 处理拖拽进入文件夹
-  const handleDragOver = (e: React.DragEvent, folderId: number) => {
+  const handleDragOver = (e: React.DragEvent, folderId: string | number) => {
     if (draggingNoteId) {
       e.preventDefault();
-      setDraggingOverFolderId(folderId);
+      setDraggingOverFolderId(String(folderId));
     }
   };
 
@@ -230,7 +230,7 @@ export default function DashboardPage() {
     }
   };
 
-  const handleDrop = async (e: React.DragEvent, folderId: number) => {
+  const handleDrop = async (e: React.DragEvent, folderId: string | number) => {
     if (!draggingNoteId) {
       return;
     }
