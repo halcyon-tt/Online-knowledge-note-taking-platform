@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Send,
   Sparkles,
@@ -16,10 +16,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { getUserId } from "@/lib/auth-utils";
-import { getLocalNotes } from "@/lib/local-storage";
-import type { Note } from "@/types/note";
+import { aiSearch } from "@/lib/api/ai";
+import { useNotes } from "@/contexts/NotesContext";
 import Link from "next/link";
 
 interface Message {
@@ -37,50 +35,9 @@ export default function AIChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [notes, setNotes] = useState<Note[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const useLocalStorage = !isSupabaseConfigured();
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadNotes() {
-      if (useLocalStorage) {
-        if (isMounted) setNotes(getLocalNotes());
-      } else {
-        const supabase = createClient();
-        if (!supabase) return;
-
-        const userId = await getUserId();
-        if (!userId) return;
-
-        const { data } = await supabase
-          .from("notes")
-          .select("*")
-          .eq("user_id", userId)
-          .order("updated_at", { ascending: false });
-
-        if (data && isMounted) {
-          setNotes(data as Note[]);
-        }
-      }
-    }
-
-    loadNotes();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [useLocalStorage]);
-
-  const processedNotes = useMemo(() => {
-    return notes.map((n) => ({
-      id: n.id,
-      title: n.title,
-      content: n.content?.replace(/<[^>]*>/g, "").slice(0, 500) || "",
-    }));
-  }, [notes]);
+  const { notes } = useNotes();
 
   // Scroll to bottom
   useEffect(() => {
@@ -102,26 +59,27 @@ export default function AIChatPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/ai-search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: userMessage.content,
-          notes: processedNotes,
-        }),
-      });
+      const data = await aiSearch(userMessage.content);
 
-      const data = await response.json();
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
+      // 将后端返回的笔记 ID 映射为带标题和摘要的对象
+      const relatedNoteDetails = (data.relatedNotes || [])
+        .map((noteId) => {
+          const note = notes.find((n) => String(n.id) === String(noteId));
+          if (!note) return null;
+          return {
+            id: String(noteId),
+            title: note.title || "无标题",
+            snippet:
+              note.content?.replace(/<[^>]*>/g, "").slice(0, 100) || "",
+          };
+        })
+        .filter((n): n is NonNullable<typeof n> => n !== null);
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
         content: data.answer || "抱歉，无法处理您的请求。",
-        relatedNotes: data.relatedNotes,
+        relatedNotes: relatedNoteDetails,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -135,7 +93,7 @@ export default function AIChatPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, processedNotes]);
+  }, [input, isLoading, notes]);
 
   // Clear conversation
   const handleClear = () => {

@@ -6,17 +6,12 @@ import { useEffect, useState, useCallback } from "react";
 import { Plus, Home, Sparkles, LogOut, LogIn } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { getUserId } from "@/lib/auth-utils";
-
+import { fetchFolder } from "@/lib/api/folders";
 import {
-  createLocalNote,
-  getLocalNotes,
-  updateLocalNote,
-  getLocalTags,
-  createLocalTag,
-  deleteLocalTag,
-} from "@/lib/local-storage";
+  fetchTags,
+  createTag as apiCreateTag,
+  deleteTag as apiDeleteTag,
+} from "@/lib/api/tags";
 import {
   Sidebar,
   SidebarContent,
@@ -39,29 +34,23 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCurrentFolderIdStore } from "@/lib/store/folders";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNotes } from "@/contexts/NotesContext"; // 新增导入
+import { useNotes } from "@/contexts/NotesContext";
+import { toast } from "sonner";
 
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
   // 使用 NotesContext 管理笔记状态
-  const {
-    notes,           // 从 Context 获取笔记列表
-    loading,         // 从 Context 获取加载状态
-    refreshNotes,    // 从 Context 获取刷新函数
-    addNote,         // 从 Context 获取添加笔记函数
-    updateNote,      // 从 Context 获取更新笔记函数
-    deleteNote       // 从 Context 获取删除笔记函数
-  } = useNotes();
+  const { notes, loading, refreshNotes, createNote, updateNote, deleteNote } =
+    useNotes();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
-  const useLocalStorage = !isSupabaseConfigured();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [tags, setTags] = useState<TagType[]>([]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<number[]>([]);
   const [folderNoteIds, setFolderNoteIds] = useState<string[] | null>(null);
   const [filteredNotes, setFilteredNotes] = useState<Note[]>([]);
   const [showNameDialog, setShowNameDialog] = useState(false);
@@ -74,33 +63,13 @@ export function AppSidebar() {
 
   useEffect(() => {
     async function fetchFolderNoteIds() {
-      const supabase = createClient();
-      if (currentFolderId.trim() !== "" && !useLocalStorage) {
-        if (!supabase) {
-          console.error("No Supabase client");
-          setFolderNoteIds(null);
-          return;
-        }
-      }
-      const userId = await getUserId();
-      if (!userId) {
+      if (!currentFolderId || currentFolderId.trim() === "") {
         setFolderNoteIds(null);
         return;
       }
+
       try {
-        const { data, error } = await supabase
-          .from("folders")
-          .select("notes_id")
-          .eq("id", currentFolderId)
-          .eq("user_id", userId)
-          .single();
-
-        if (error) {
-          console.error("Error fetching folder note IDs:", error);
-          setFolderNoteIds(null);
-          return;
-        }
-
+        const data = await fetchFolder(Number(currentFolderId));
         if (data && data.notes_id) {
           const ids = data.notes_id
             .split(",")
@@ -111,42 +80,23 @@ export function AppSidebar() {
           setFolderNoteIds(null);
         }
       } catch (error) {
-        console.error("Unexpected error:", error);
-        alert("查询文件夹时发生未知错误");
+        console.error("获取文件夹笔记ID失败:", error);
         setFolderNoteIds(null);
       }
     }
     fetchFolderNoteIds();
-  }, [currentFolderId, useLocalStorage]);
+  }, [currentFolderId]);
 
-  // 加载标签（笔记列表现在由 Context 管理）
+  // 加载标签
   const loadTags = useCallback(async () => {
-    if (useLocalStorage) {
-      setTags(getLocalTags());
-    } else {
-      const supabase = createClient();
-      if (!supabase) {
-        setTags([]);
-        return;
-      }
-
-      const userId = await getUserId();
-      if (!userId) {
-        setTags([]);
-        return;
-      }
-
-      const { data: tagsData } = await supabase
-        .from("tags")
-        .select("*")
-        .eq("user_id", userId)
-        .order("name");
-
-      if (tagsData) {
-        setTags(tagsData as TagType[]);
-      }
+    try {
+      const data = await fetchTags();
+      setTags(data);
+    } catch (error) {
+      console.error("加载标签失败:", error);
+      setTags([]);
     }
-  }, [useLocalStorage]);
+  }, []);
 
   // 初始加载标签
   useEffect(() => {
@@ -160,32 +110,22 @@ export function AppSidebar() {
     }
   }, [pathname, refreshNotes]);
 
-  const getTaggedNoteIds = useCallback(async () => {
+  const getTaggedNoteIds = useCallback(() => {
     if (selectedTags.length === 0) return null;
 
-    if (useLocalStorage) {
-      return new Set(
-        notes
-          .filter((note) =>
-            note.tags?.some((tag) => selectedTags.includes(tag))
-          )
-          .map((note) => note.id)
-          .filter(Boolean) as string[]
-      );
-    } else {
-      const supabase = createClient();
-      if (!supabase) return null;
+    const selectedTagNames = selectedTags
+      .map((tagId) => tags.find((t) => t.id === tagId)?.name)
+      .filter(Boolean) as string[];
 
-      const { data } = await supabase
-        .from("note_tags")
-        .select("note_id")
-        .in("tag_id", selectedTags);
-
-      return new Set(
-        (data || []).map((item: { note_id: string }) => item.note_id)
-      );
-    }
-  }, [selectedTags, useLocalStorage, notes]);
+    return new Set(
+      notes
+        .filter((note) =>
+          note.tags?.some((tag) => selectedTagNames.includes(tag))
+        )
+        .map((note) => note.id)
+        .filter((id): id is number => id != null)
+    );
+  }, [selectedTags, notes, tags]);
 
   // 过滤笔记的逻辑
   useEffect(() => {
@@ -199,12 +139,13 @@ export function AppSidebar() {
           folderNoteIds.length > 0
         ) {
           result = result.filter(
-            (note) => note.id && folderNoteIds.includes(note.id)
+            (note) => note.id && folderNoteIds.includes(String(note.id))
           );
         }
 
         if (searchQuery) {
-          const lowerQuery = searchQuery.toLowerCase();
+          const lowerQuery = String(searchQuery).toLowerCase();
+          console.log("searchQuery:", searchQuery, "notes:", notes);
           result = result.filter((note) => {
             return (
               (note.title && note.title.toLowerCase().includes(lowerQuery)) ||
@@ -214,7 +155,7 @@ export function AppSidebar() {
         }
 
         if (selectedTags.length > 0) {
-          const taggedNoteIds = await getTaggedNoteIds();
+          const taggedNoteIds = getTaggedNoteIds();
           if (taggedNoteIds) {
             result = result.filter(
               (note) => note.id && taggedNoteIds.has(note.id)
@@ -230,64 +171,19 @@ export function AppSidebar() {
     }, 150);
 
     return () => clearTimeout(timeoutId);
-  }, [notes, folderNoteIds, searchQuery, selectedTags, getTaggedNoteIds]);
+  }, [notes, folderNoteIds, searchQuery, selectedTags]);
 
   const handleCreateNote = () => {
     setShowNameDialog(true);
   };
 
   const handleConfirmCreateNote = async (noteName: string) => {
-    if (useLocalStorage) {
-      const newNote = createLocalNote({ title: noteName, content: "" });
-      addNote(newNote); // 使用 Context 的 addNote
-      router.push(`/dashboard/notes/${newNote.id}`);
-    } else {
-      const supabase = createClient();
-      if (!supabase) {
-        console.error("No Supabase client");
-        alert("系统错误：无法连接到数据库");
-        return;
-      }
-
-      try {
-        // 获取当前用户
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-          alert("请先登录");
-          router.push("/login");
-          return;
-        }
-
-        console.log('创建笔记，用户ID:', user.id);
-
-        // 直接创建笔记（不检查用户记录是否存在）
-        const { data, error } = await supabase
-          .from("notes")
-          .insert({
-            title: noteName,
-            content: "",
-            user_id: user.id,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .select()
-          .single();
-
-        if (error) {
-          console.error("创建笔记失败:", error);
-          alert("创建笔记失败: " + error.message);
-          return;
-        }
-
-        if (data) {
-          addNote(data as Note); // 使用 Context 的 addNote
-          router.push(`/dashboard/notes/${data.id}`);
-        }
-      } catch (error: any) {
-        console.error("Unexpected error:", error);
-        alert("创建笔记时发生未知错误");
-      }
+    try {
+      const note = await createNote({ title: noteName, content: "" });
+      router.push(`/dashboard/notes/${note.id}`);
+    } catch (error) {
+      console.error("创建笔记失败:", error);
+      toast.error("创建笔记失败");
     }
     if (isMobile) {
       setOpenMobile(false);
@@ -295,64 +191,26 @@ export function AppSidebar() {
   };
 
   const handleCreateTag = async (tagName: string) => {
-    if (useLocalStorage) {
-      createLocalTag(tagName);
-      setTags(getLocalTags());
-    } else {
-      const supabase = createClient();
-      if (!supabase) return;
-
-      const userId = await getUserId();
-      if (!userId) {
-        alert("请先登录");
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("tags")
-        .insert({ name: tagName, user_id: userId })
-        .select()
-        .single();
-
-      if (error) {
-        console.error("Error creating tag:", error);
-        alert("创建标签失败: " + error.message);
-        return;
-      }
-
-      if (data) {
-        setTags((prev) => [...prev, data as TagType]);
-      }
+    try {
+      const tag = await apiCreateTag({ name: tagName });
+      setTags((prev) => [...prev, tag]);
+    } catch (error) {
+      console.error("创建标签失败:", error);
+      toast.error("创建标签失败");
     }
   };
 
-  const handleDeleteTag = async (tagId: string) => {
-    if (useLocalStorage) {
-      deleteLocalTag(tagId);
-      setTags(getLocalTags());
-      setSelectedTags((prev) => {
-        const tag = tags.find((t) => t.id === tagId);
-        return tag ? prev.filter((t) => t !== tag.name) : prev;
-      });
-    } else {
-      const supabase = createClient();
-      if (!supabase) return;
-
-      const { error } = await supabase.from("tags").delete().eq("id", tagId);
-      if (error) {
-        console.error("Error deleting tag:", error);
-        return;
-      }
-
-      const deletedTag = tags.find((t) => t.id === tagId);
+  const handleDeleteTag = async (tagId: number) => {
+    try {
+      await apiDeleteTag(tagId);
       setTags((prev) => prev.filter((t) => t.id !== tagId));
-      if (deletedTag) {
-        setSelectedTags((prev) => prev.filter((t) => t !== deletedTag.name));
-      }
+      setSelectedTags((prev) => prev.filter((t) => t !== tagId));
+    } catch (error) {
+      console.error("删除标签失败:", error);
     }
   };
 
-  const toggleTagFilter = (tagId: string) => {
+  const toggleTagFilter = (tagId: number) => {
     setSelectedTags((prev) =>
       prev.includes(tagId) ? prev.filter((t) => t !== tagId) : [...prev, tagId]
     );
@@ -361,36 +219,17 @@ export function AppSidebar() {
   const handleStartEdit = (e: React.MouseEvent, note: Note) => {
     e.preventDefault();
     e.stopPropagation();
-    if (note.id) setEditingId(note.id);
+    if (note.id) setEditingId(String(note.id));
     setEditingTitle(note.title || "");
   };
 
-  const handleSaveTitle = async (noteId: string) => {
+  const handleSaveTitle = async (noteId: number) => {
     const trimmedTitle = editingTitle.trim() || "未命名笔记";
 
-    if (useLocalStorage) {
-      updateLocalNote(noteId, { title: trimmedTitle });
-      // 本地存储模式下，需要刷新整个笔记列表
-      refreshNotes();
-    } else {
-      const supabase = createClient();
-      if (!supabase) return;
-
-      const { error } = await supabase
-        .from("notes")
-        .update({ title: trimmedTitle, updated_at: new Date().toISOString() })
-        .eq("id", noteId);
-
-      if (error) {
-        console.error("Error updating title:", error);
-        return;
-      }
-
-      // 使用 Context 的 updateNote 更新笔记
-      updateNote(noteId, {
-        title: trimmedTitle,
-        updated_at: new Date().toISOString(),
-      });
+    try {
+      await updateNote(noteId, { title: trimmedTitle });
+    } catch (error) {
+      console.error("更新标题失败:", error);
     }
 
     setEditingId(null);
@@ -402,7 +241,7 @@ export function AppSidebar() {
     setEditingTitle("");
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent, noteId: string) => {
+  const handleKeyDown = (e: React.KeyboardEvent, noteId: number) => {
     if (e.key === "Enter") {
       e.preventDefault();
       handleSaveTitle(noteId);
@@ -417,14 +256,12 @@ export function AppSidebar() {
     setLogoutLoading(true);
     try {
       await signOut();
-      // 重定向到登录页面
-      router.push('/login');
-      // 刷新页面以确保状态完全清除
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+      router.push("/login");
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
       }
     } catch (error) {
-      console.error('退出登录失败:', error);
+      console.error("退出登录失败:", error);
     } finally {
       setLogoutLoading(false);
       if (isMobile) {
@@ -446,37 +283,23 @@ export function AppSidebar() {
     }
   };
 
-  const handleDeleteNote = async (noteId: string) => {
-    if (useLocalStorage) {
-      localStorage.setItem("notes", JSON.stringify(
-        getLocalNotes().filter((n) => n.id !== noteId)
-      ));
-      deleteNote(noteId); // 使用 Context 的 deleteNote
-    } else {
-      const supabase = createClient();
-      if (!supabase) return;
-      const { error } = await supabase.from("notes").delete().eq("id", noteId);
-      if (error) {
-        console.error("Error deleting note:", error);
-        return;
-      }
-      deleteNote(noteId); // 使用 Context 的 deleteNote
+  const handleDeleteNote = async (noteId: number) => {
+    try {
+      await deleteNote(noteId);
+    } catch (error) {
+      console.error("删除笔记失败:", error);
     }
   };
 
   // 获取用户显示名称
   const getUserDisplayName = () => {
-    if (!user) return '';
-
-    const username = user.user_metadata?.username;
-    const email = user.email;
-
+    if (!user) return "";
+    const username =
+      (user as any).username || (user as any).user_metadata?.username;
+    const email = (user as any).email;
     if (username) return username;
-    if (email) {
-      // 只显示邮箱的用户名部分
-      return email.split('@')[0];
-    }
-    return '用户';
+    if (email) return email.split("@")[0];
+    return "用户";
   };
 
   return (
@@ -542,10 +365,10 @@ export function AppSidebar() {
         />
 
         <SidebarNotesList
-          notes={notes}               // 使用 Context 的 notes
+          notes={notes}
           filteredNotes={filteredNotes}
           tags={tags}
-          loading={loading}           // 使用 Context 的 loading
+          loading={loading}
           searchQuery={searchQuery}
           selectedTags={selectedTags}
           pathname={pathname}
@@ -562,15 +385,14 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t border-border p-4">
         {authLoading ? (
-          // 加载状态
           <div className="w-full flex justify-center">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
           </div>
         ) : user ? (
-          // 已登录状态 - 显示用户信息和退出按钮
           <div className="space-y-3">
             <div className="text-sm text-center text-gray-600">
-              当前用户: <span className="font-medium">{getUserDisplayName()}</span>
+              当前用户:{" "}
+              <span className="font-medium">{getUserDisplayName()}</span>
             </div>
             <Button
               onClick={handleLogout}
@@ -592,17 +414,10 @@ export function AppSidebar() {
             </Button>
           </div>
         ) : (
-          // 未登录状态 - 显示登录按钮
           <Button onClick={handleLogin} className="w-full">
             <LogIn className="h-4 w-4 mr-2" />
             登录/注册
           </Button>
-        )}
-
-        {useLocalStorage && (
-          <p className="text-xs text-yellow-600 mt-2 text-center">
-            本地存储模式
-          </p>
         )}
       </SidebarFooter>
 

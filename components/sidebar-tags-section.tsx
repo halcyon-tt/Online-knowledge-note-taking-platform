@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Plus, Tag, ChevronDown, ChevronRight, Check, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,10 +20,10 @@ import type { Tag as TagType } from "@/types/note";
 
 interface SidebarTagsSectionProps {
   tags: TagType[];
-  selectedTags: string[];
+  selectedTags: number[];
   onTagCreate: (name: string) => void;
-  onTagDelete: (tagId: string) => void;
-  onTagToggle: (tagId: string) => void;
+  onTagDelete: (tagId: number) => void;
+  onTagToggle: (tagId: number) => void;
   onClearFilter: () => void;
 }
 
@@ -43,7 +44,7 @@ export function SidebarTagsSection({
     if (!trimmedName) return;
 
     if (tags.some((t) => t.name === trimmedName)) {
-      alert("标签已存在");
+      toast.warning("标签已存在");
       return;
     }
 

@@ -2,12 +2,10 @@
 
 import { useEffect, useState, use, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { isSupabaseConfigured, createClient } from "@/lib/supabase/client";
-import { getLocalNote, updateLocalNote } from "@/lib/local-storage";
+import { fetchNote, updateNote as apiUpdateNote } from "@/lib/api/notes";
 import NoteEditor from "@/components/note-editor";
 import { NoteTagManager } from "@/components/note-tag-manager";
 import type { Note } from "@/types/note";
-
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -19,145 +17,70 @@ export default function NotePage({ params }: PageProps) {
   const [note, setNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const useLocalStorage = !isSupabaseConfigured();
 
   useEffect(() => {
     async function loadNote() {
-      if (useLocalStorage) {
-        const localNote = getLocalNote(id);
-        if (!localNote) {
-          router.push("/dashboard");
-          return;
-        }
-        setNote(localNote);
-      } else {
-        const supabase = createClient();
-        if (!supabase) {
-          router.push("/dashboard");
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from("notes")
-          .select("*")
-          .eq("id", id)
-          .single();
-
-        if (error || !data) {
-          router.push("/dashboard");
-          return;
-        }
-        setNote(data as Note);
+      try {
+        const data = await fetchNote(Number(id));
+        setNote(data);
+      } catch (error) {
+        console.error("加载笔记失败:", error);
+        router.push("/dashboard");
+        return;
       }
       setLoading(false);
     }
     loadNote();
-  }, [id, useLocalStorage, router]);
+  }, [id, router]);
 
-  // 处理内容变化的函数
-  // const handleContentChange = async (content: string) => {
-  //   if (!note) return;
-
-  //   const updatedNote = {
-  //     ...note,
-  //     content,
-  //     updated_at: new Date().toISOString(),
-  //   };
-
-  //   if (useLocalStorage) {
-  //     updateLocalNote(id, updatedNote);
-  //   } else {
-  //     const supabase = createClient();
-  //     if (!supabase) return;
-
-  //     try {
-  //       const { error } = await supabase
-  //         .from("notes")
-  //         .update({
-  //           content: content,
-  //           updated_at: new Date().toISOString(),
-  //         })
-  //         .eq("id", id);
-
-  //       if (error) {
-  //         console.error("更新失败:", error);
-  //       }
-  //     } catch (error) {
-  //       console.error("更新出错:", error);
-  //     }
-  //   }
-
-  //   setNote(updatedNote);
-  // };
-
-
-
-  // 在组件内部
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastCallRef = useRef<number>(0);
 
-  const handleContentChange = useCallback(async (content: string) => {
-    const now = Date.now();
+  const handleContentChange = useCallback(
+    async (content: string) => {
+      const now = Date.now();
 
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
 
-    // 如果距离上次执行超过10秒，立即执行
-    if (now - lastCallRef.current >= 1000 * 60) {
-      lastCallRef.current = now;
-      await updateNote(content);
-    } else {
-      // 否则，设置一个定时器，在剩余时间后执行
-      timeoutRef.current = setTimeout(() => {
-        lastCallRef.current = Date.now();
-        updateNote(content);
-      }, 5000 - (now - lastCallRef.current));
-    }
-  }, [note, id, useLocalStorage]); // 依赖项
+      // 如果距离上次执行超过60秒，立即执行
+      if (now - lastCallRef.current >= 1000 * 60) {
+        lastCallRef.current = now;
+        await saveNote(content);
+      } else {
+        // 否则，设置一个定时器，5秒后执行
+        timeoutRef.current = setTimeout(
+          () => {
+            lastCallRef.current = Date.now();
+            saveNote(content);
+          },
+          5000 - (now - lastCallRef.current)
+        );
+      }
+    },
+    [note, id]
+  );
 
-  // 将更新逻辑提取为单独的函数
-  const updateNote = async (content: string) => {
+  const saveNote = async (content: string) => {
     setSaving(true);
     if (!note) {
       setSaving(false);
       return;
     }
 
-    const updatedNote = {
-      ...note,
-      content,
-      updated_at: new Date().toISOString(),
-    };
-
-    if (useLocalStorage) {
-      updateLocalNote(id, updatedNote);
-    } else {
-      const supabase = createClient();
-      if (!supabase) {
-        setSaving(false);
-        return;
-      }
-
-      try {
-        const { error } = await supabase
-          .from("notes")
-          .update({
-            content: content,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", id);
-
-        if (error) {
-          console.error("更新失败:", error);
-        }
-      } catch (error) {
-        console.error("更新出错:", error);
-      }
+    try {
+      await apiUpdateNote(Number(id), { content });
+      setNote({
+        ...note,
+        content,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("更新失败:", error);
+    } finally {
+      setSaving(false);
     }
-
-    setNote(updatedNote);
-    setSaving(false);
   };
 
   // 清理定时器（在组件卸载时）
@@ -204,7 +127,7 @@ export default function NotePage({ params }: PageProps) {
             onTagsChange={handleTagsChange}
             setSaving={setSaving}
             saving={saving}
-            updateNote={updateNote}
+            updateNote={saveNote}
           />
         </div>
       </div>

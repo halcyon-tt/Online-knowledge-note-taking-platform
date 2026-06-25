@@ -16,14 +16,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { getUserId } from "@/lib/auth-utils";
 import {
-  getLocalTags,
-  addTagToNote,
-  removeTagFromNote,
-  getLocalNotes,
-} from "@/lib/local-storage";
+  fetchTags,
+  fetchNoteTags,
+  addTagToNote as apiAddTagToNote,
+  removeTagFromNote as apiRemoveTagFromNote,
+} from "@/lib/api/tags";
+import { toast } from "sonner";
 import type { Tag } from "@/types/note";
 
 interface NoteTagManagerProps {
@@ -43,70 +42,27 @@ export function NoteTagManager({
   onTagsChange,
   saving,
   setSaving,
-  updateNote
+  updateNote,
 }: NoteTagManagerProps) {
   const [tags, setTags] = useState<Tag[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
-  const useLocalStorage = !isSupabaseConfigured();
 
   // 加载标签
   useEffect(() => {
     async function loadTags() {
       setLoading(true);
       try {
-        if (useLocalStorage) {
-          setTags(getLocalTags());
-          setLoading(false);
-          return;
-        }
-
-        const supabase = createClient();
-        if (!supabase) {
-          setLoading(false);
-          return;
-        }
-
-        const userId = await getUserId();
-        if (!userId) {
-          setTags([]);
-          setLoading(false);
-          return;
-        }
-
         // 加载所有标签
-        const { data: tagsData } = await supabase
-          .from("tags")
-          .select("*")
-          .eq("user_id", userId)
-          .order("name");
-
-        if (tagsData) {
-          setTags(tagsData as Tag[]);
-        }
+        const allTags = await fetchTags();
+        setTags(allTags);
 
         // 加载笔记已有标签
-        const { data: noteTagsData } = await supabase
-          .from("note_tags")
-          .select("tag_id")
-          .eq("note_id", noteId)
-          .eq("user_id", userId);
-
-        if (noteTagsData && noteTagsData.length > 0) {
-          const tagIds = noteTagsData.map((nt: { tag_id: any; }) => nt.tag_id);
-          const tagNames: string[] = [];
-
-          for (const tagId of tagIds) {
-            const tag = tagsData?.find((t: { id: any; }) => t.id === tagId);
-            if (tag) {
-              tagNames.push(tag.name);
-            }
-          }
-
-          if (tagNames.length > 0) {
-            onTagsChange(tagNames);
-          }
+        const noteTagsData = await fetchNoteTags(Number(noteId));
+        if (noteTagsData.length > 0) {
+          const tagNames = noteTagsData.map((t) => t.name);
+          onTagsChange(tagNames);
         }
       } catch (error) {
         console.error("加载标签失败:", error);
@@ -115,10 +71,10 @@ export function NoteTagManager({
       }
     }
     loadTags();
-  }, [useLocalStorage, noteId]);
+  }, [noteId]);
 
   // 添加标签
-  const handleAddTag = async (tagId: string) => {
+  const handleAddTag = async (tagId: number) => {
     const tagData = tags.find((t) => t.id === tagId);
     if (!tagData) return;
 
@@ -130,39 +86,11 @@ export function NoteTagManager({
 
     setSaving(true);
     try {
-      if (useLocalStorage) {
-        addTagToNote(noteId, tagId);
-        const updatedNote = getLocalNotes().find((n) => n.id === noteId);
-        if (updatedNote) {
-          onTagsChange(updatedNote.tags || []);
-        }
-      } else {
-        const supabase = createClient();
-        if (!supabase) return;
-
-        const userId = await getUserId();
-        if (!userId) {
-          alert("请先登录");
-          return;
-        }
-
-        const { error } = await supabase.from("note_tags").insert({
-          tag_id: tagId,
-          note_id: noteId,
-          user_id: userId,
-          created_at: new Date().toISOString(),
-        });
-
-        if (error) {
-          console.error("添加标签失败:", error);
-          alert("添加标签失败: " + error.message);
-          return;
-        }
-
-        onTagsChange([...noteTags, tagData.name]);
-      }
+      await apiAddTagToNote(Number(noteId), Number(tagId));
+      onTagsChange([...noteTags, tagData.name]);
     } catch (error) {
-      console.error("添加标签出错:", error);
+      console.error("添加标签失败:", error);
+      toast.error("添加标签失败");
     } finally {
       setSaving(false);
       setOpen(false);
@@ -171,37 +99,15 @@ export function NoteTagManager({
 
   // 移除标签
   const handleRemoveTag = async (tagName: string) => {
+    const tagData = tags.find((t) => t.name === tagName);
+    if (!tagData) return;
+
     setSaving(true);
     try {
-      if (useLocalStorage) {
-        const tagData = tags.find((t) => t.name === tagName);
-        if (tagData) {
-          removeTagFromNote(noteId, tagData.id);
-        }
-        onTagsChange(noteTags.filter((t) => t !== tagName));
-      } else {
-        const supabase = createClient();
-        if (!supabase) return;
-
-        const userId = await getUserId();
-        if (!userId) return;
-
-        const tagData = tags.find((t) => t.name === tagName);
-        if (!tagData) return;
-
-        const { error } = await supabase
-          .from("note_tags")
-          .delete()
-          .eq("note_id", noteId)
-          .eq("tag_id", tagData.id)
-          .eq("user_id", userId);
-
-        if (!error) {
-          onTagsChange(noteTags.filter((t) => t !== tagName));
-        }
-      }
+      await apiRemoveTagFromNote(Number(noteId), Number(tagData.id));
+      onTagsChange(noteTags.filter((t) => t !== tagName));
     } catch (error) {
-      console.error("移除标签出错:", error);
+      console.error("移除标签失败:", error);
     } finally {
       setSaving(false);
     }
@@ -348,12 +254,6 @@ export function NoteTagManager({
         size="sm"
         className="h-6 px-2 text-xs ml-2 bg-transparent"
         disabled={saving}
-        // onClick={async () => {
-        //   // 手动触发保存确认
-        //   setSaving(true);
-        //   await updateNote("");
-        //   setTimeout(() => setSaving(false), 500);
-        // }}
       >
         {saving ? (
           <>

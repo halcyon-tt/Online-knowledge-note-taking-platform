@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState } from "react";
 import { Sparkles, Search, Loader2, FileText, AlertCircle } from "lucide-react";
 import {
   Dialog,
@@ -16,10 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { getUserId } from "@/lib/auth-utils";
-import { getLocalNotes } from "@/lib/local-storage";
-import type { Note } from "@/types/note";
+import { aiSearch } from "@/lib/api/ai";
+import { useNotes } from "@/contexts/NotesContext";
 import Link from "next/link";
 
 interface Message {
@@ -33,70 +31,8 @@ export function AISearchDialog() {
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
-  const [notes, setNotes] = useState<Note[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const useLocalStorage = !isSupabaseConfigured();
-
-  useEffect(() => {
-    if (!open) return;
-
-    let isMounted = true;
-
-    async function loadNotes() {
-      setError(null);
-      try {
-        if (useLocalStorage) {
-          if (isMounted) {
-            const localNotes = getLocalNotes();
-            setNotes(localNotes);
-          }
-        } else {
-          const supabase = createClient();
-          if (!supabase) {
-            setError("Supabase 未配置");
-            return;
-          }
-
-          const userId = await getUserId();
-          if (!userId) {
-            setError("请先登录");
-            return;
-          }
-
-          const { data, error: fetchError } = await supabase
-            .from("notes")
-            .select("id, title, content")
-            .eq("user_id", userId);
-
-          if (fetchError) {
-            setError("加载笔记失败：" + fetchError.message);
-            return;
-          }
-
-          if (data && isMounted) {
-            setNotes(data as Note[]);
-          }
-        }
-      } catch (err) {
-        setError("加载笔记时发生错误");
-        console.error(err);
-      }
-    }
-
-    loadNotes();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [open, useLocalStorage]);
-
-  const processedNotes = useMemo(() => {
-    return notes.map((n) => ({
-      id: n.id,
-      title: n.title,
-      content: n.content,
-    }));
-  }, [notes]);
+  const { notes } = useNotes();
 
   const handleSearch = async () => {
     if (!query.trim() || loading) return;
@@ -109,36 +45,32 @@ export function AISearchDialog() {
     setError(null);
 
     try {
-      const response = await fetch("/api/ai-search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: currentQuery,
-          notes: processedNotes,
-        }),
-      });
+      const data = await aiSearch(currentQuery);
 
-      const data = await response.json();
+      // 将后端返回的笔记 ID 映射为带标题和摘要的对象
+      const relatedNoteDetails = (data.relatedNotes || [])
+        .map((noteId) => {
+          const note = notes.find((n) => String(n.id) === String(noteId));
+          if (!note) return null;
+          return {
+            id: String(noteId),
+            title: note.title || "无标题",
+            snippet:
+              note.content?.replace(/<[^>]*>/g, "").slice(0, 100) || "",
+          };
+        })
+        .filter((n): n is NonNullable<typeof n> => n !== null);
 
-      if (!response.ok || data.error) {
-        const errorMsg = data.error || `请求失败 (${response.status})`;
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: `错误：${errorMsg}` },
-        ]);
-        setError(errorMsg);
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: data.answer || "未能获取回答",
-            relatedNotes: data.relatedNotes,
-          },
-        ]);
-      }
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: data.answer || "未能获取回答",
+          relatedNotes: relatedNoteDetails,
+        },
+      ]);
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "网络请求失败";
+      const errorMsg = err instanceof Error ? err.message : "请求失败";
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: `请求失败：${errorMsg}` },

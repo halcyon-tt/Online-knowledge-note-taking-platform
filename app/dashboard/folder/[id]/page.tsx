@@ -1,16 +1,16 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { redirect, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { isSupabaseConfigured, createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 import {
-  getLocalFolder,
-  getLocalNotes,
-  updateLocalFolder,
-  deleteLocalFolder,
-} from "@/lib/local-storage";
-import { getUserId } from "@/lib/auth-utils";
+  fetchFolder,
+  updateFolder,
+  deleteFolder as apiDeleteFolder,
+  updateFolderNotes,
+} from "@/lib/api/folders";
+import { fetchNote, deleteNote as apiDeleteNote } from "@/lib/api/notes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { Folder, Note } from "@/types/note";
 import { useCurrentFolderIdStore } from "@/lib/store/folders";
-import { get } from "http";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -42,86 +41,44 @@ export default function FolderPage({ params }: PageProps) {
   const [folder, setFolder] = useState<Folder | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
-  const useLocalStorage = !isSupabaseConfigured();
   const { setCurrentFolderId } = useCurrentFolderIdStore();
 
   useEffect(() => {
     async function loadFolder() {
-      if (useLocalStorage) {
-        // 本地存储模式
-        const localFolder = getLocalFolder(id);
-        if (!localFolder) {
-          router.push("/dashboard");
-          return;
-        }
-        setFolder(localFolder);
-
-        // 获取文件夹内的笔记
-        if (localFolder.notes_id) {
-          const noteIds = localFolder.notes_id
-            .split(",")
-            .filter((nid) => nid.trim() !== "");
-          const allNotes = getLocalNotes();
-          const folderNotes = allNotes.filter(
-            (note) => note.id && noteIds.includes(note.id)
-          );
-          setNotes(folderNotes);
-        }
-      } else {
-        // Supabase 模式
-        const supabase = createClient();
-        if (!supabase) {
-          router.push("/dashboard");
-          return;
-        }
-
-        const userId = await getUserId();
-        if (!userId) {
-          router.push("/login");
-          return;
-        }
-
-        // 获取文件夹
-        const { data: folderData, error: folderError } = await supabase
-          .from("folders")
-          .select("*")
-          .eq("id", id)
-          .eq("user_id", userId)
-          .single();
-
-        if (folderError || !folderData) {
-          router.push("/dashboard");
-          return;
-        }
-
-        setFolder(folderData as Folder);
+      try {
+        const folderData = await fetchFolder(Number(id));
+        setFolder(folderData);
 
         // 获取文件夹内的笔记
         if (folderData.notes_id) {
           const noteIds = folderData.notes_id
             .split(",")
-            .filter((nid: string) => nid.trim() !== "");
+            .filter((nid) => nid.trim() !== "");
           if (noteIds.length > 0) {
-            const { data: notesData } = await supabase
-              .from("notes")
-              .select("*")
-              .in("id", noteIds)
-              .eq("user_id", userId);
-
-            if (notesData) {
-              setNotes(notesData as Note[]);
-            }
+            const results = await Promise.allSettled(
+              noteIds.map((nid) => fetchNote(Number(nid)))
+            );
+            const loadedNotes = results
+              .filter(
+                (r): r is PromiseFulfilledResult<Note> =>
+                  r.status === "fulfilled"
+              )
+              .map((r) => r.value);
+            setNotes(loadedNotes);
           }
         }
+      } catch (error) {
+        console.error("加载文件夹失败:", error);
+        router.push("/dashboard");
+        return;
       }
       setLoading(false);
     }
 
     loadFolder();
-  }, [id, useLocalStorage, router]);
+  }, [id, router]);
 
   useEffect(() => {
-    // console.log("Folder data:", id);
     setCurrentFolderId(id);
   }, []);
 
@@ -131,32 +88,12 @@ export default function FolderPage({ params }: PageProps) {
     const newName = window.prompt("请输入新的文件夹名:", folder.name);
     if (!newName || newName === folder.name) return;
 
-    if (useLocalStorage) {
-      const updatedFolder = {
-        ...folder,
-        name: newName,
-        updated_at: new Date().toISOString(),
-      };
-      updateLocalFolder(updatedFolder);
-      setFolder(updatedFolder);
-    } else {
-      const supabase = createClient();
-      if (!supabase) return;
-
-      const userId = await getUserId();
-      if (!userId) return;
-
-      const { data, error } = await supabase
-        .from("folders")
-        .update({ name: newName, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .eq("user_id", userId)
-        .select()
-        .single();
-
-      if (!error && data) {
-        setFolder(data as Folder);
-      }
+    try {
+      const updated = await updateFolder(Number(id), { name: newName });
+      setFolder(updated);
+    } catch (error) {
+      console.error("重命名失败:", error);
+      toast.error("重命名失败");
     }
   };
 
@@ -168,25 +105,12 @@ export default function FolderPage({ params }: PageProps) {
     );
     if (!confirmed) return;
 
-    if (useLocalStorage) {
-      deleteLocalFolder(id);
+    try {
+      await apiDeleteFolder(Number(id));
       router.push("/dashboard");
-    } else {
-      const supabase = createClient();
-      if (!supabase) return;
-
-      const userId = await getUserId();
-      if (!userId) return;
-
-      const { error } = await supabase
-        .from("folders")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", userId);
-
-      if (!error) {
-        router.push("/dashboard");
-      }
+    } catch (error) {
+      console.error("删除文件夹失败:", error);
+      toast.error("删除文件夹失败");
     }
   };
 
@@ -201,34 +125,33 @@ export default function FolderPage({ params }: PageProps) {
       : [];
     const newNoteIds = currentNoteIds.filter((nid) => nid !== noteId).join(",");
 
-    if (useLocalStorage) {
-      const updatedFolder = {
-        ...folder,
-        notes_id: newNoteIds,
-        updated_at: new Date().toISOString(),
-      };
-      updateLocalFolder(updatedFolder);
-      setFolder(updatedFolder);
-      setNotes((prev) => prev.filter((n) => n.id !== noteId));
-    } else {
-      const supabase = createClient();
-      if (!supabase) return;
+    try {
+      const updated = await updateFolderNotes(Number(id), newNoteIds);
+      setFolder(updated);
+      setNotes((prev) => prev.filter((n) => String(n.id) !== noteId));
+    } catch (error) {
+      console.error("移出笔记失败:", error);
+      toast.error("移出笔记失败");
+    }
+  };
 
-      const userId = await getUserId();
-      if (!userId) return;
+  // 删除笔记
+  const handleDeleteNote = async (noteId: string) => {
+    if (!folder) return;
 
-      const { data, error } = await supabase
-        .from("folders")
-        .update({ notes_id: newNoteIds, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .eq("user_id", userId)
-        .select()
-        .single();
+    const currentNoteIds = folder.notes_id
+      .split(",")
+      .filter((nid) => nid.trim() !== "" && nid !== noteId);
+    const newNotesId = currentNoteIds.join(",");
 
-      if (!error && data) {
-        setFolder(data as Folder);
-        setNotes((prev) => prev.filter((n) => n.id !== noteId));
-      }
+    try {
+      await apiDeleteNote(Number(noteId));
+      await updateFolderNotes(Number(id), newNotesId);
+      setFolder({ ...folder, notes_id: newNotesId });
+      setNotes((prev) => prev.filter((n) => String(n.id) !== noteId));
+    } catch (error) {
+      console.error("删除笔记失败:", error);
+      toast.error("删除笔记失败");
     }
   };
 
@@ -250,59 +173,6 @@ export default function FolderPage({ params }: PageProps) {
       </div>
     );
   }
-
-  // 删除笔记
-  const handleDeleteNote = async (noteId: string) => {
-    if (folder) {
-      let notes_string = folder.notes_id.split(",");
-      let result = "";
-      if (notes_string.length > 2) {
-        result = notes_string.filter((nid) => nid !== noteId).join(",");
-      } else {
-        result = notes_string[0];
-      }
-      folder.notes_id = result ? result : "";
-    }
-    if (useLocalStorage) {
-      const notes = getLocalNotes().filter((n) => n.id !== noteId);
-      setNotes(notes);
-      localStorage.setItem("notes", JSON.stringify(notes));
-    } else {
-      const supabase = createClient();
-      if (!supabase) return;
-      const userId = await getUserId();
-      if (!userId) return;
-      {
-        const { error } = await supabase
-          .from("notes")
-          .delete()
-          .eq("id", noteId)
-          .eq("user_id", userId);
-        if (error) {
-          console.error("Error deleting note:", error);
-          return;
-        }
-      }
-      {
-        const { error } = await supabase
-          .from("folders")
-          .update({
-            notes_id: folder.notes_id,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", id)
-          .eq("user_id", userId);
-        if (error) {
-          console.error("Error deleting note:", error);
-          return;
-        }
-      }
-      setNotes((prev) => prev.filter((n) => n.id !== noteId));
-    }
-    setFolder(folder);
-    // redirect(`/dashboard/folder/${folder.id}`);
-    // window.location.reload();
-  };
 
   return (
     <div className="p-4 md:p-6">
@@ -400,7 +270,7 @@ export default function FolderPage({ params }: PageProps) {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  if (note.id) handleDeleteNote(note.id);
+                  if (note.id) handleDeleteNote(String(note.id));
                 }}
               >
                 <Trash className="" />
@@ -413,11 +283,9 @@ export default function FolderPage({ params }: PageProps) {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  if (note.id) handleRemoveNote(note.id);
+                  if (note.id) handleRemoveNote(String(note.id));
                 }}
               >
-                {/* <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /> */}
-                {/* <p>移出文件夹</p> */}
                 <LogOut />
               </Button>
             </Card>

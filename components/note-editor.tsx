@@ -3,6 +3,7 @@
 import type React from "react";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { toast } from "sonner";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
@@ -78,13 +79,13 @@ function ImageInsertDialog({
 
       // 验证文件类型
       if (!file.type.startsWith("image/")) {
-        alert("请选择图片文件 (JPG, PNG, GIF等)");
+        toast.warning("请选择图片文件 (JPG, PNG, GIF等)");
         return;
       }
 
       // 验证文件大小（限制5MB）
       if (file.size > 5 * 1024 * 1024) {
-        alert("图片大小不能超过5MB");
+        toast.warning("图片大小不能超过5MB");
         return;
       }
 
@@ -451,7 +452,7 @@ export default function Tiptap({
     const text = editor.getText();
     try {
       await navigator.clipboard.writeText(text);
-      alert("内容已复制到剪贴板！");
+      toast.success("内容已复制到剪贴板");
     } catch (err) {
       console.error("复制失败:", err);
     }
@@ -463,7 +464,7 @@ export default function Tiptap({
 
     const content = editor.getHTML();
     localStorage.setItem("tiptap-content", content);
-    alert("内容已保存到本地存储！");
+    toast.success("内容已保存到本地存储");
   };
 
   // 从本地存储加载
@@ -471,7 +472,7 @@ export default function Tiptap({
     const savedContent = localStorage.getItem("tiptap-content");
     if (savedContent && editor) {
       editor.commands.setContent(savedContent);
-      alert("内容已从本地存储加载！");
+      toast.success("内容已从本地存储加载");
     }
   };
 

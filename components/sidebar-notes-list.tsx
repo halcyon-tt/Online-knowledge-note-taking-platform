@@ -17,16 +17,16 @@ interface SidebarNotesListProps {
   tags: TagType[];
   loading: boolean;
   searchQuery: string;
-  selectedTags: string[];
+  selectedTags: number[];
   pathname: string;
   editingId: string | null;
   editingTitle: string;
   onStartEdit: (e: React.MouseEvent, note: Note) => void;
-  onSaveTitle: (noteId: string) => void;
+  onSaveTitle: (noteId: number) => void;
   onCancelEdit: () => void;
   onTitleChange: (title: string) => void;
-  onKeyDown: (e: React.KeyboardEvent, noteId: string) => void;
-  handleDeleteNote: (noteId: string) => void;
+  onKeyDown: (e: React.KeyboardEvent, noteId: number) => void;
+  handleDeleteNote: (noteId: number) => void;
 }
 
 export function SidebarNotesList({
@@ -63,22 +63,23 @@ export function SidebarNotesList({
             </div>
           ) : (
             <>
-              {Array.isArray(filteredNotes) && filteredNotes.map((note) => (
-                <SidebarNoteItem
-                  key={note.id}
-                  note={note}
-                  tags={tags}
-                  pathname={pathname}
-                  editingId={editingId}
-                  editingTitle={editingTitle}
-                  onStartEdit={onStartEdit}
-                  onSaveTitle={onSaveTitle}
-                  onCancelEdit={onCancelEdit}
-                  onTitleChange={onTitleChange}
-                  onKeyDown={onKeyDown}
-                  handleDeleteNote={handleDeleteNote}
-                />
-              ))}
+              {Array.isArray(filteredNotes) &&
+                filteredNotes.map((note) => (
+                  <SidebarNoteItem
+                    key={note.id}
+                    note={note}
+                    tags={tags}
+                    pathname={pathname}
+                    editingId={editingId}
+                    editingTitle={editingTitle}
+                    onStartEdit={onStartEdit}
+                    onSaveTitle={onSaveTitle}
+                    onCancelEdit={onCancelEdit}
+                    onTitleChange={onTitleChange}
+                    onKeyDown={onKeyDown}
+                    handleDeleteNote={handleDeleteNote}
+                  />
+                ))}
               {filteredNotes.length === 0 && (
                 <p className="px-2 py-4 text-sm text-muted-foreground text-center">
                   {searchQuery || selectedTags.length > 0

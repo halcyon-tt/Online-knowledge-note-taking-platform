@@ -1,5 +1,5 @@
 export interface Note {
-  id?: string;
+  id?: number;
   title?: string;
   content?: string;
   tags?: string[]; // 添加标签字段
@@ -8,14 +8,14 @@ export interface Note {
 }
 
 export interface Tag {
-  id: string;
+  id: number;
   user_id?: string;
   name: string;
   color: string;
 }
 
 export interface Folder {
-  id: string;
+  id: number;
   // user_id: string;
   name: string;
   notes_id: string; //用逗号分割的笔记ID列表

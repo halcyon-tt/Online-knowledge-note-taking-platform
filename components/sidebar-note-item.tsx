@@ -15,11 +15,11 @@ interface SidebarNoteItemProps {
   editingId: string | null;
   editingTitle: string;
   onStartEdit: (e: React.MouseEvent, note: Note) => void;
-  onSaveTitle: (noteId: string) => void;
+  onSaveTitle: (noteId: number) => void;
   onCancelEdit: () => void;
   onTitleChange: (title: string) => void;
-  onKeyDown: (e: React.KeyboardEvent, noteId: string) => void;
-  handleDeleteNote: (noteId: string) => void;
+  onKeyDown: (e: React.KeyboardEvent, noteId: number) => void;
+  handleDeleteNote: (noteId: number) => void;
 }
 
 export function SidebarNoteItem({
@@ -35,7 +35,7 @@ export function SidebarNoteItem({
   onKeyDown,
   handleDeleteNote,
 }: SidebarNoteItemProps) {
-  const isEditing = editingId === note.id;
+  const isEditing = editingId !== null && String(editingId) === String(note.id);
 
   return (
     <SidebarMenuItem key={note.id}>
@@ -44,7 +44,7 @@ export function SidebarNoteItem({
           <Input
             value={editingTitle}
             onChange={(e) => onTitleChange(e.target.value)}
-            onKeyDown={(e) => note.id && onKeyDown(e, note.id)}
+            onKeyDown={(e) => note.id != null && onKeyDown(e, note.id)}
             className="h-7 text-sm flex-1"
             autoFocus
             placeholder="笔记标题"
@@ -53,7 +53,7 @@ export function SidebarNoteItem({
             size="icon"
             variant="ghost"
             className="h-6 w-6 shrink-0"
-            onClick={() => note.id && onSaveTitle(note.id)}
+            onClick={() => note.id != null && onSaveTitle(note.id)}
           >
             <Check className="h-3.5 w-3.5 text-green-600" />
           </Button>
@@ -78,7 +78,6 @@ export function SidebarNoteItem({
               <span className="truncate block max-w-full">
                 {note.title || "未命名笔记"}
               </span>
-              {/* 显示笔记标签 */}
               {note.tags && note.tags.length > 0 && (
                 <div className="flex gap-0.5 mt-0.5">
                   {note.tags.slice(0, 2).map((tagName) => {
@@ -98,18 +97,17 @@ export function SidebarNoteItem({
                 </div>
               )}
             </div>
-            <button
-              onClick={(e) => onStartEdit(e, note)}
+            <span
+              role="button"
+              onClickCapture={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onStartEdit(e as unknown as React.MouseEvent, note);
+              }}
               className="h-5 w-5 shrink-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-accent transition-opacity"
             >
               <Pencil className="h-3 w-3 text-muted-foreground" />
-            </button>
-            {/* <button
-                onClick={() => handleDeleteNote(note.id)}
-              className="h-5 w-5 shrink-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-accent transition-opacity"
-            >
-              <Trash className="h-3 w-3 text-muted-foreground" />
-            </button> */}
+            </span>
           </Link>
         </SidebarMenuButton>
       )}
