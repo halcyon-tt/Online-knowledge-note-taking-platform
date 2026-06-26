@@ -33,9 +33,8 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
-      <AuthProvider>
-        <body className="font-sans antialiased">
-          suppressHydrationWarning={true}
+      <body className="font-sans antialiased" suppressHydrationWarning>
+        <AuthProvider>
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
@@ -46,8 +45,8 @@ export default function RootLayout({
             <Toaster richColors position="top-center" />
           </ThemeProvider>
           <Analytics />
-        </body>
-      </AuthProvider>
+        </AuthProvider>
+      </body>
     </html>
   );
 }

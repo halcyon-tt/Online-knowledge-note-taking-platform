@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -19,20 +19,38 @@ interface NoteNameDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (noteName: string) => void;
+  title?: string;
+  description?: string;
+  label?: string;
+  placeholder?: string;
+  confirmLabel?: string;
+  defaultValue?: string;
 }
 
 export function NoteNameDialog({
   open,
   onOpenChange,
   onConfirm,
+  title = "创建新笔记",
+  description = "请输入笔记名称",
+  label = "笔记名称",
+  placeholder = "输入笔记名称...",
+  confirmLabel = "创建",
+  defaultValue = "",
 }: NoteNameDialogProps) {
-  const [noteName, setNoteName] = useState("");
+  const [noteName, setNoteName] = useState(defaultValue);
+
+  useEffect(() => {
+    if (open) {
+      setNoteName(defaultValue);
+    }
+  }, [defaultValue, open]);
 
   const handleConfirm = () => {
     const trimmedName = noteName.trim();
     if (trimmedName) {
       onConfirm(trimmedName);
-      setNoteName("");
+      setNoteName(defaultValue);
       onOpenChange(false);
     }
   };
@@ -48,18 +66,18 @@ export function NoteNameDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>创建新笔记</DialogTitle>
-          <DialogDescription>请输入笔记名称</DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="note-name">笔记名称</Label>
+            <Label htmlFor="note-name">{label}</Label>
             <Input
               id="note-name"
               value={noteName}
               onChange={(e) => setNoteName(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="输入笔记名称..."
+              placeholder={placeholder}
               autoFocus
             />
           </div>
@@ -68,14 +86,14 @@ export function NoteNameDialog({
           <Button
             variant="outline"
             onClick={() => {
-              setNoteName("");
+              setNoteName(defaultValue);
               onOpenChange(false);
             }}
           >
             取消
           </Button>
           <Button onClick={handleConfirm} disabled={!noteName.trim()}>
-            创建
+            {confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

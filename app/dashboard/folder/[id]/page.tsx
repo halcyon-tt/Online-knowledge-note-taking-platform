@@ -11,16 +11,11 @@ import {
   updateFolderNotes,
 } from "@/lib/api/folders";
 import { fetchNote, deleteNote as apiDeleteNote } from "@/lib/api/notes";
-import {
-  getLocalFolder,
-  getLocalNotes,
-  updateLocalFolder,
-  deleteLocalFolder,
-} from "@/lib/local-storage";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
+import { NoteNameDialog } from "@/components/note-name-dialog";
 
 import {
   ArrowLeft,
@@ -50,45 +45,23 @@ export default function FolderPage({ params }: PageProps) {
   const [folder, setFolder] = useState<Folder | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showRenameDialog, setShowRenameDialog] = useState(false);
   const { setCurrentFolderId } = useCurrentFolderIdStore();
   const { user, loading: authLoading } = useAuth();
-  const useLocalStorage = !isSupabaseConfigured();
 
   useEffect(() => {
-    if (!authLoading && !user && !useLocalStorage) {
+    if (!authLoading && !user) {
       router.push("/login");
     }
-  }, [authLoading, user, useLocalStorage, router]);
+  }, [authLoading, user, router]);
 
   useEffect(() => {
-    if ((user || useLocalStorage) && !authLoading) {
+    if (user && !authLoading) {
       loadFolder();
     }
-  }, [id, user, authLoading, useLocalStorage]);
+  }, [id, user, authLoading]);
 
   async function loadFolder() {
-    if (useLocalStorage) {
-      const localFolder = getLocalFolder(id);
-      if (!localFolder) {
-        router.push("/dashboard");
-        return;
-      }
-      setFolder(localFolder);
-
-      if (localFolder.notes_id) {
-        const noteIds = localFolder.notes_id
-          .split(",")
-          .filter((nid) => nid.trim() !== "");
-        const allNotes = getLocalNotes();
-        const folderNotes = allNotes.filter(
-          (note) => note.id && noteIds.includes(note.id)
-        );
-        setNotes(folderNotes);
-      }
-      setLoading(false);
-      return;
-    }
-
     try {
       const folderData = await fetchFolder(Number(id));
       setFolder(folderData);
@@ -124,19 +97,11 @@ export default function FolderPage({ params }: PageProps) {
 
   const handleRename = async () => {
     if (!folder) return;
-    const newName = window.prompt("请输入新的文件夹名:", folder.name);
-    if (!newName || newName === folder.name) return;
+    setShowRenameDialog(true);
+  };
 
-    if (useLocalStorage) {
-      const updatedFolder = {
-        ...folder,
-        name: newName,
-        updated_at: new Date().toISOString(),
-      };
-      updateLocalFolder(updatedFolder);
-      setFolder(updatedFolder);
-      return;
-    }
+  const handleConfirmRename = async (newName: string) => {
+    if (!folder || newName === folder.name) return;
 
     try {
       const updated = await updateFolder(Number(id), { name: newName });
@@ -149,47 +114,49 @@ export default function FolderPage({ params }: PageProps) {
 
   const handleDelete = async () => {
     if (!folder) return;
-    const confirmed = window.confirm(
-      `确定要删除文件夹 "${folder.name}" 吗？文件夹内的笔记不会被删除。`
-    );
-    if (!confirmed) return;
-
-    if (useLocalStorage) {
-      deleteLocalFolder(id);
-      router.push("/dashboard");
-      return;
-    }
-
-    try {
-      await apiDeleteFolder(Number(id));
-      router.push("/dashboard");
-    } catch (error) {
-      console.error("删除文件夹失败:", error);
-      toast.error("删除文件夹失败");
-    }
+    toast(`确定要删除文件夹「${folder.name}」吗？文件夹内的笔记不会被删除。`, {
+      action: {
+        label: "删除",
+        onClick: async () => {
+          try {
+            await apiDeleteFolder(Number(id));
+            toast.success("文件夹已删除");
+            router.push("/dashboard");
+          } catch (error) {
+            console.error("删除文件夹失败:", error);
+            toast.error("删除文件夹失败");
+          }
+        },
+      },
+      cancel: {
+        label: "取消",
+        onClick: () => {},
+      },
+    });
   };
 
   const handleRemoveNote = async (noteId: string) => {
     if (!folder) return;
-    const confirmed = window.confirm("确定要从文件夹中移除这个笔记吗？");
-    if (!confirmed) return;
+    toast("确定要从文件夹中移除这个笔记吗？", {
+      action: {
+        label: "移除",
+        onClick: async () => {
+          await removeNoteFromFolder(noteId);
+        },
+      },
+      cancel: {
+        label: "取消",
+        onClick: () => {},
+      },
+    });
+  };
 
+  const removeNoteFromFolder = async (noteId: string) => {
+    if (!folder) return;
     const currentNoteIds = folder.notes_id
       ? folder.notes_id.split(",").filter((nid) => nid.trim() !== "")
       : [];
     const newNoteIds = currentNoteIds.filter((nid) => nid !== noteId).join(",");
-
-    if (useLocalStorage) {
-      const updatedFolder = {
-        ...folder,
-        notes_id: newNoteIds,
-        updated_at: new Date().toISOString(),
-      };
-      updateLocalFolder(updatedFolder);
-      setFolder(updatedFolder);
-      setNotes((prev) => prev.filter((n) => n.id !== noteId));
-      return;
-    }
 
     try {
       const updated = await updateFolderNotes(Number(id), newNoteIds);
@@ -208,13 +175,6 @@ export default function FolderPage({ params }: PageProps) {
       .split(",")
       .filter((nid) => nid.trim() !== "" && nid !== noteId);
     const newNotesId = currentNoteIds.join(",");
-
-    if (useLocalStorage) {
-      const notes = getLocalNotes().filter((n) => n.id !== noteId);
-      setNotes(notes);
-      localStorage.setItem("notes", JSON.stringify(notes));
-      return;
-    }
 
     try {
       await apiDeleteNote(Number(noteId));
@@ -240,7 +200,7 @@ export default function FolderPage({ params }: PageProps) {
     );
   }
 
-  if (!user && !useLocalStorage) {
+  if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <p className="text-muted-foreground">请先登录</p>
@@ -370,6 +330,18 @@ export default function FolderPage({ params }: PageProps) {
           ))}
         </div>
       )}
+
+      <NoteNameDialog
+        open={showRenameDialog}
+        onOpenChange={setShowRenameDialog}
+        onConfirm={handleConfirmRename}
+        title="重命名文件夹"
+        description="请输入新的文件夹名称"
+        label="文件夹名称"
+        placeholder="输入文件夹名称..."
+        confirmLabel="保存"
+        defaultValue={folder?.name || ""}
+      />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import {
   getCurrentUser,
   signOut as apiSignOut,
@@ -32,26 +32,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     const token = localStorage.getItem("access_token");
     if (!token) {
       setUser(null);
       setLoading(false);
       return;
     }
-    const profile = await getCurrentUser();
-    setUser(profile);
-    setLoading(false);
-  };
+    try {
+      const profile = await getCurrentUser();
+      setUser(profile);
+    } catch {
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     refreshUser();
   }, []);
 
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     await apiSignOut();
     setUser(null);
-  };
+  }, []);
 
   return (
     <AuthContext.Provider

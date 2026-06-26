@@ -25,14 +25,8 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { useNotes } from "@/contexts/NotesContext";
+import { NoteNameDialog } from "@/components/note-name-dialog";
 import { toast } from "sonner";
 
 const NOTES_PER_PAGE = 6;
@@ -55,6 +49,7 @@ export default function DashboardPage() {
   const [draggingOverFolderId, setDraggingOverFolderId] = useState<
     string | null
   >(null);
+  const [showFolderDialog, setShowFolderDialog] = useState(false);
   const { setCurrentFolderId } = useCurrentFolderIdStore();
 
   // 本地状态用于分页
@@ -187,20 +182,13 @@ export default function DashboardPage() {
 
   // 创建文件夹
   const handleCreateFolder = async () => {
-    setFolderName("");
-    setCreateFolderOpen(true);
+    setShowFolderDialog(true);
   };
-  const handleConfirmCreateFolder = async () => {
-    const name = folderName.trim();
-    if (!name) {
-      toast.warning("文件夹名不能为空");
-      return;
-    }
 
+  const handleConfirmCreateFolder = async (name: string) => {
     try {
-      const folder = await apiCreateFolder({ name });
+      const folder = await apiCreateFolder({ name: name.trim() });
       setFolders((prev) => [folder, ...prev]);
-      setCreateFolderOpen(false); // 关闭弹窗
       toast.success("文件夹创建成功");
     } catch (error) {
       console.error("创建文件夹失败:", error);
@@ -250,7 +238,7 @@ export default function DashboardPage() {
       ? targetFolder.notes_id.split(",").filter((id) => id.trim() !== "")
       : [];
 
-    if (currentNoteIds.includes(noteId)) {
+    if (currentNoteIds.includes(String(noteId))) {
       toast.info("该笔记已在此文件夹中");
     } else {
       const newNoteIds = [...currentNoteIds, noteId].join(",");
@@ -465,35 +453,16 @@ export default function DashboardPage() {
           拖拽笔记到文件夹上进行添加
         </div>
       )}
-      {/* 新建文件夹弹窗 */}
-      <Dialog open={createFolderOpen} onOpenChange={setCreateFolderOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>创建新文件夹</DialogTitle>
-          </DialogHeader>
-
-          <div className="py-4">
-            <Input
-              placeholder="请输入文件夹名称"
-              value={folderName}
-              onChange={(e) => setFolderName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleConfirmCreateFolder();
-              }}
-            />
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setCreateFolderOpen(false)}
-            >
-              取消
-            </Button>
-            <Button onClick={handleConfirmCreateFolder}>确认创建</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <NoteNameDialog
+        open={showFolderDialog}
+        onOpenChange={setShowFolderDialog}
+        onConfirm={handleConfirmCreateFolder}
+        title="创建新文件夹"
+        description="请输入文件夹名称"
+        label="文件夹名称"
+        placeholder="输入文件夹名称..."
+        confirmLabel="创建"
+      />
     </div>
   );
 }

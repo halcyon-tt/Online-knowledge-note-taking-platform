@@ -140,6 +140,7 @@ export async function getCurrentUser() {
 export async function getUserId() {
   try {
     const supabase = createClient();
+    if (!supabase) return null;
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -154,6 +155,7 @@ export async function getUserId() {
 export async function checkUserInPublicTable(userId: string): Promise<boolean> {
   try {
     const supabase = createClient();
+    if (!supabase) return false;
     const { data, error } = await supabase
       .from("users")
       .select("id")
