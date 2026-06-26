@@ -56,3 +56,33 @@ export interface AiErrorResponse {
     message: string;
   };
 }
+
+export type ToolName = "search_notes" | "get_note" | "list_tags" | "propose_note_update";
+
+export type AgentStreamEvent =
+  | { type: "start"; id: string }
+  | { type: "text"; content: string }
+  | { type: "tool_call"; id: string; tool: string; args: unknown }
+  | { type: "tool_result"; id: string; result: unknown }
+  | { type: "requires_confirmation"; id: string; action: string; payload: unknown }
+  | { type: "error"; message: string }
+  | { type: "done" };
+
+export interface AgentChatRequest {
+  message: string;
+  conversationId?: string;
+  noteContext?: {
+    noteId?: number;
+    title?: string;
+    content?: string;
+  };
+}
+
+export type WorkflowName = "search-summarize" | "organize-suggest" | "polish-check" | "search-draft";
+
+export type WorkflowStreamEvent = AgentStreamEvent | { type: "step"; step: string; status: "running" | "done" | "error" };
+
+export interface WorkflowRequest {
+  workflow: WorkflowName;
+  payload: Record<string, unknown>;
+}

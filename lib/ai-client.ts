@@ -6,6 +6,10 @@ import type {
   OrganizeNoteResponse,
   SearchNotesRequest,
   SearchNotesResponse,
+  AgentStreamEvent,
+  AgentChatRequest,
+  WorkflowRequest,
+  WorkflowStreamEvent,
 } from "@/types/ai";
 
 async function postJson<TResponse>(
@@ -57,4 +61,92 @@ export async function searchNotes(
   signal?: AbortSignal,
 ): Promise<SearchNotesResponse> {
   return postJson<SearchNotesResponse>("/api/ai/search-notes", request, signal);
+}
+
+export async function agentChatStream(
+  request: AgentChatRequest,
+  onEvent: (event: AgentStreamEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch("/api/agent/chat/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Agent request failed with status ${response.status}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("Response body is not readable");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || !trimmed.startsWith("data: ")) continue;
+      try {
+        const event = JSON.parse(trimmed.slice(6)) as AgentStreamEvent;
+        onEvent(event);
+        if (event.type === "done") return;
+      } catch {
+        // skip malformed lines
+      }
+    }
+  }
+}
+
+export async function workflowStream(
+  request: WorkflowRequest,
+  onEvent: (event: WorkflowStreamEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch("/api/agent/workflow/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Workflow request failed with status ${response.status}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("Response body is not readable");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || !trimmed.startsWith("data: ")) continue;
+      try {
+        const event = JSON.parse(trimmed.slice(6)) as WorkflowStreamEvent;
+        onEvent(event);
+        if (event.type === "done") return;
+      } catch {
+        // skip malformed lines
+      }
+    }
+  }
 }
