@@ -5,11 +5,22 @@ const NEST_API_BASE = process.env.NEST_API_BASE_URL || "http://localhost:3001";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const nestResponse = await fetch(`${NEST_API_BASE}/api/ai/polish`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    const authHeader = request.headers.get("authorization");
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (authHeader) {
+      headers["Authorization"] = authHeader;
+    }
+
+    const nestResponse = await fetch(
+      `${NEST_API_BASE}/api/ai/search`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      },
+    );
 
     const data = await nestResponse.json();
 
@@ -19,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("AI polish buffer error:", error);
+    console.error("AI search buffer error:", error);
     return NextResponse.json(
       {
         error: {
