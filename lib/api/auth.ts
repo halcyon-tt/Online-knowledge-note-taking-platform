@@ -67,12 +67,13 @@ export async function signInWithEmail(email: string, password: string) {
   return data;
 }
 
-/** 解码 JWT payload，不验证签名 */
 function decodeToken(token: string): UserProfile | null {
   try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
+    const base64url = token.split(".")[1];
+    const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(base64));
     if (payload.exp && payload.exp * 1000 < Date.now()) {
-      return null; // 已过期
+      return null;
     }
     return {
       sub: payload.sub,

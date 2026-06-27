@@ -33,7 +33,7 @@ describe("AIPolishDialog", () => {
     expect(await screen.findByText("更流畅的文本")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /复制/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /插入下方/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /确认替换/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /替换/ })).toBeInTheDocument();
   });
 
   it("calls insert and confirm callbacks with the polished result", async () => {
@@ -78,7 +78,7 @@ describe("AIPolishDialog", () => {
     await waitFor(() => {
       expect(screen.getByText("更流畅的文本")).toBeInTheDocument();
     });
-    await userEvent.click(screen.getByRole("button", { name: /确认替换/ }));
+    await userEvent.click(screen.getByRole("button", { name: /替换/ }));
 
     expect(onConfirm).toHaveBeenCalledWith("更流畅的文本");
   });

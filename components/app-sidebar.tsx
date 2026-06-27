@@ -27,7 +27,6 @@ import { SidebarHeaderComponent } from "@/components/sidebar-header";
 import { SidebarSearch } from "@/components/sidebar-search";
 import { SidebarTagsSection } from "@/components/sidebar-tags-section";
 import { SidebarNotesList } from "@/components/sidebar-notes-list";
-import { AISearchDialog } from "@/components/ai-search-dialog";
 import { NoteNameDialog } from "@/components/note-name-dialog";
 import type { Note, Tag as TagType } from "@/types/note";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -89,6 +88,7 @@ export function AppSidebar() {
 
   // 加载标签
   const loadTags = useCallback(async () => {
+    if (!localStorage.getItem("access_token")) return;
     try {
       const data = await fetchTags();
       setTags(data);
@@ -352,7 +352,6 @@ export function AppSidebar() {
         />
 
         <SidebarGroup>
-          <AISearchDialog />
         </SidebarGroup>
 
         <SidebarTagsSection

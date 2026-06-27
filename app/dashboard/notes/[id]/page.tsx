@@ -2,9 +2,13 @@
 
 import { useEffect, useState, use, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { Sparkles, X as XIcon } from "lucide-react";
 import { fetchNote, updateNote as apiUpdateNote } from "@/lib/api/notes";
 import NoteEditor from "@/components/note-editor";
 import { NoteTagManager } from "@/components/note-tag-manager";
+import { AINoteOrganizePanel } from "@/components/ai-note-organize-panel";
+import { AgentChatPanel } from "@/components/agent-chat-panel";
+import { AIWorkflowPanel } from "@/components/ai-workflow-panel";
 import type { Note } from "@/types/note";
 
 interface PageProps {
@@ -12,11 +16,15 @@ interface PageProps {
 }
 
 export default function NotePage({ params }: PageProps) {
+  const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
   const { id } = use(params);
   const router = useRouter();
   const [note, setNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showOrganize, setShowOrganize] = useState(false);
+  const [showAgent, setShowAgent] = useState(false);
+  const [showWorkflow, setShowWorkflow] = useState(false);
 
   useEffect(() => {
     async function loadNote() {
@@ -97,6 +105,37 @@ export default function NotePage({ params }: PageProps) {
     setNote({ ...note, tags });
   };
 
+  const handleApplyTitle = useCallback(async (newTitle: string) => {
+    setSaving(true);
+    try {
+      await apiUpdateNote(Number(id), { title: newTitle });
+      setNote((prev) => prev ? { ...prev, title: newTitle } : prev);
+    } catch { /* ignore */ } finally { setSaving(false); }
+  }, [id]);
+
+  const handleApplyTags = useCallback(async (tags: string[]) => {
+    setNote((prev) => prev ? { ...prev, tags } : prev);
+  }, []);
+
+  const handleInsertSummary = useCallback(async (summary: string) => {
+    const newContent = note?.content
+      ? `${note.content}\n\n---\n**摘要**\n${summary}`
+      : `**摘要**\n${summary}`;
+    setSaving(true);
+    try {
+      await apiUpdateNote(Number(id), { content: newContent });
+      setNote((prev) => prev ? { ...prev, content: newContent } : prev);
+    } catch { /* ignore */ } finally { setSaving(false); }
+  }, [id, note]);
+
+  const handleTitleBlur = useCallback(async () => {
+    if (!note) return;
+    setSaving(true);
+    try {
+      await apiUpdateNote(Number(id), { title: note.title || "" });
+    } catch { /* ignore */ } finally { setSaving(false); }
+  }, [id, note]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -117,27 +156,97 @@ export default function NotePage({ params }: PageProps) {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="border-b bg-background px-2 md:px-4 py-2">
-        <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
-          <span className="text-sm text-muted-foreground shrink-0">标签:</span>
-          <NoteTagManager
+    <div className="flex h-full">
+      <div className="flex flex-col flex-1 min-w-0">
+        <div className="border-b bg-background px-3 md:px-4 py-3 space-y-2">
+          <input
+            type="text"
+            value={note.title || ""}
+            onChange={(e) => setNote({ ...note, title: e.target.value })}
+            onBlur={handleTitleBlur}
+            onKeyDown={(e) => { if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); } }}
+            placeholder="笔记标题"
+            className="w-full text-lg font-semibold bg-transparent border-none outline-none placeholder:text-muted-foreground/40"
+          />
+          <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
+            <span className="text-sm text-muted-foreground shrink-0">标签:</span>
+            <NoteTagManager
+              noteId={id}
+              noteTags={note.tags || []}
+              onTagsChange={handleTagsChange}
+              setSaving={setSaving}
+              saving={saving}
+              updateNote={saveNote}
+            />
+            <div className="ml-auto shrink-0 flex items-center gap-1">
+              <button
+                onClick={() => { setShowAgent(false); setShowWorkflow(false); setShowOrganize((v) => !v); }}
+                className="flex items-center gap-1 px-2 py-1 text-xs rounded hover:bg-accent transition-colors"
+                title="AI 整理"
+              >
+                {showOrganize ? <XIcon className="h-3 w-3" /> : <Sparkles className="h-3 w-3 text-primary" />}
+                <span>{showOrganize ? "关闭" : "AI 整理"}</span>
+              </button>
+              <button
+                onClick={() => { setShowOrganize(false); setShowWorkflow(false); setShowAgent((v) => !v); }}
+                className="flex items-center gap-1 px-2 py-1 text-xs rounded hover:bg-accent transition-colors"
+                title="AI Agent 对话"
+              >
+                {showAgent ? <XIcon className="h-3 w-3" /> : <Sparkles className="h-3 w-3 text-primary" />}
+                <span>{showAgent ? "关闭" : "Agent"}</span>
+              </button>
+              <button
+                onClick={() => { setShowOrganize(false); setShowAgent(false); setShowWorkflow((v) => !v); }}
+                className="flex items-center gap-1 px-2 py-1 text-xs rounded hover:bg-accent transition-colors"
+                title="AI 工作流"
+              >
+                {showWorkflow ? <XIcon className="h-3 w-3" /> : <Sparkles className="h-3 w-3 text-primary" />}
+                <span>{showWorkflow ? "关闭" : "工作流"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 overflow-auto hide-scrollbar">
+          <NoteEditor
             noteId={id}
-            noteTags={note.tags || []}
-            onTagsChange={handleTagsChange}
-            setSaving={setSaving}
-            saving={saving}
-            updateNote={saveNote}
+            initialContent={note.content}
+            onChange={handleContentChange}
           />
         </div>
       </div>
-      <div className="flex-1 overflow-auto hide-scrollbar">
-        <NoteEditor
-          noteId={id}
-          initialContent={note.content}
-          onChange={handleContentChange}
-        />
-      </div>
+      {showOrganize && (
+        <div className="w-72 border-l bg-background flex flex-col shrink-0">
+          <AINoteOrganizePanel
+            title={note.title || ""}
+            content={stripHtml(note.content || "")}
+            existingTags={note.tags || []}
+            onApplyTitle={handleApplyTitle}
+            onApplyTags={handleApplyTags}
+            onInsertSummary={handleInsertSummary}
+          />
+        </div>
+      )}
+      {showAgent && (
+        <div className="w-80 border-l bg-background flex flex-col shrink-0">
+          <AgentChatPanel
+            noteContext={{
+              noteId: Number(id),
+              title: note.title || "",
+              content: stripHtml(note.content || ""),
+            }}
+          />
+        </div>
+      )}
+      {showWorkflow && (
+        <div className="w-80 border-l bg-background flex flex-col shrink-0">
+          <AIWorkflowPanel
+            noteId={Number(id)}
+            title={note.title || ""}
+            content={stripHtml(note.content || "")}
+            existingTags={note.tags || []}
+          />
+        </div>
+      )}
     </div>
   );
 }

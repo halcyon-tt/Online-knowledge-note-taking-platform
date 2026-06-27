@@ -7,100 +7,163 @@ import {
   Send,
   Sparkles,
   Loader2,
-  FileText,
+  Square,
   Trash2,
-  BookOpen,
-  Layers,
-  Search,
+  Bot,
+  User,
+  AlertCircle,
+  Check,
+  X,
+  Wrench,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { aiSearch } from "@/lib/api/ai";
+import { AgentUiRenderer } from "@/components/agent-ui-renderer";
+import { agentChatStream } from "@/lib/ai-client";
+import type { AgentStreamEvent, UiEvent, FrontendToolName } from "@/types/ai";
 import { useNotes } from "@/contexts/NotesContext";
 import Link from "next/link";
 
-interface Message {
+interface AgentMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
-  relatedNotes?: Array<{
-    id: string;
-    title: string;
-    snippet: string;
-  }>;
+  toolCalls?: { id: string; tool: string; args: unknown; result?: unknown; done?: boolean }[];
+  requiresConfirmation?: { id: string; action: string; payload: unknown };
+  uiEvents?: UiEvent[];
 }
 
 export default function AIChatPage() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const { notes } = useNotes();
 
-  // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Send message
   const handleSend = useCallback(async () => {
     if (!input.trim() || isLoading) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
+    const text = input.trim();
+    const userMsg: AgentMessage = {
+      id: `user_${Date.now()}`,
       role: "user",
-      content: input.trim(),
+      content: text,
     };
-
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsLoading(true);
 
+    const assistantId = `assistant_${Date.now()}`;
+    const assistantMsg: AgentMessage = { id: assistantId, role: "assistant", content: "" };
+    setMessages((prev) => [...prev, assistantMsg]);
+
+    const abort = new AbortController();
+    abortRef.current = abort;
+
     try {
-      const data = await aiSearch(userMessage.content);
+      await agentChatStream(
+        { message: text },
+        (event: AgentStreamEvent) => {
+          if (abort.signal.aborted) return;
+          if (event.type === "ui") {
+            const name = event.component as FrontendToolName;
+            if (["insertAtCursor","replaceRange","replaceSelection","scrollTo","highlightRange","updateTitle","addTags"].includes(name)) {
+              return;
+            }
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (!last || last.id !== assistantId) return prev;
+              return updated.map((m) =>
+                m.id === assistantId
+                  ? { ...m, uiEvents: [...(m.uiEvents || []), event] }
+                  : m
+              );
+            });
+            return;
+          }
+          setMessages((prev) => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (!last || last.id !== assistantId) return prev;
 
-      // 将后端返回的笔记 ID 映射为带标题和摘要的对象
-      const relatedNoteDetails = (data.relatedNotes || [])
-        .map((noteId) => {
-          const note = notes.find((n) => String(n.id) === String(noteId));
-          if (!note) return null;
-          return {
-            id: String(noteId),
-            title: note.title || "无标题",
-            snippet:
-              note.content?.replace(/<[^>]*>/g, "").slice(0, 100) || "",
-          };
-        })
-        .filter((n): n is NonNullable<typeof n> => n !== null);
-
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: data.answer || "抱歉，无法处理您的请求。",
-        relatedNotes: relatedNoteDetails,
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: `请求失败：${error instanceof Error ? error.message : "未知错误"}`,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+            switch (event.type) {
+              case "text-delta":
+                return updated.map((m) =>
+                  m.id === assistantId ? { ...m, content: m.content + event.content } : m
+                );
+              case "tool-call-start":
+                return updated.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, toolCalls: [...(m.toolCalls || []), { id: event.id, tool: event.tool, args: event.args }] }
+                    : m
+                );
+              case "tool-call-end":
+                return updated.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, toolCalls: (m.toolCalls || []).map((tc) => tc.id === event.id ? { ...tc, done: true } : tc) }
+                    : m
+                );
+              case "tool-result":
+                return updated.map((m) =>
+                  m.id === assistantId
+                    ? {
+                        ...m,
+                        toolCalls: (m.toolCalls || []).map((tc) =>
+                          tc.id === event.id ? { ...tc, result: event.result } : tc
+                        ),
+                      }
+                    : m
+                );
+              case "human-in-the-loop":
+                return updated.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, requiresConfirmation: { id: event.id, action: event.action, payload: event.payload } }
+                    : m
+                );
+              case "error":
+                return updated.map((m) =>
+                  m.id === assistantId ? { ...m, content: m.content + `\n[错误] ${event.message}` } : m
+                );
+              default:
+                return prev;
+            }
+          });
+        },
+        abort.signal
+      );
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? { ...m, content: m.content + `\n[错误] ${err instanceof Error ? err.message : "请求失败"}` }
+            : m
+        )
+      );
     } finally {
       setIsLoading(false);
+      abortRef.current = null;
     }
-  }, [input, isLoading, notes]);
+  }, [input, isLoading]);
 
-  // Clear conversation
+  const handleCancel = useCallback(() => {
+    abortRef.current?.abort();
+    setIsLoading(false);
+  }, []);
+
   const handleClear = () => {
     setMessages([]);
   };
 
-  // Handle keyboard events
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -110,16 +173,15 @@ export default function AIChatPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden">
-      {/* Top title bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-border shrink-0 gap-3 sm:gap-0">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
-            <Sparkles className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+            <Bot className="h-4 w-4 md:h-5 md:w-5 text-primary" />
           </div>
           <div>
             <h1 className="text-lg md:text-xl font-semibold">AI 智能助手</h1>
             <p className="text-xs md:text-sm text-muted-foreground">
-              检索、摘要、聚合您的笔记内容
+              Agent 驱动：检索、摘要、整理您的笔记
             </p>
           </div>
         </div>
@@ -141,61 +203,20 @@ export default function AIChatPage() {
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 md:py-16 text-center">
               <div className="p-3 md:p-4 rounded-full bg-primary/10 mb-3 md:mb-4">
-                <Sparkles className="h-6 w-6 md:h-8 md:w-8 text-primary" />
+                <Bot className="h-6 w-6 md:h-8 md:w-8 text-primary" />
               </div>
-              <h2 className="text-base md:text-lg font-medium mb-2">
-                AI 智能助手
-              </h2>
+              <h2 className="text-base md:text-lg font-medium mb-2">AI 智能助手</h2>
               <p className="text-muted-foreground max-w-md mb-6 md:mb-8 text-sm md:text-base px-4">
-                支持智能检索、内容摘要和信息聚合，让 AI 帮您整理和分析笔记
+                Agent 可以搜索笔记、获取内容、提出修改建议，让 AI 帮您管理和整理笔记
               </p>
-
-              {/* Feature cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 w-full max-w-2xl mb-6 md:mb-8 px-2">
-                <Card className="text-left">
-                  <CardContent className="p-3 md:p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Search className="h-4 w-4 text-blue-500" />
-                      <span className="font-medium text-sm">智能检索</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      语义搜索笔记内容，找到相关信息
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card className="text-left">
-                  <CardContent className="p-3 md:p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <BookOpen className="h-4 w-4 text-green-500" />
-                      <span className="font-medium text-sm">内容摘要</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      精炼总结笔记要点，快速了解内容
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card className="text-left">
-                  <CardContent className="p-3 md:p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Layers className="h-4 w-4 text-purple-500" />
-                      <span className="font-medium text-sm">信息聚合</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      整合多篇笔记，形成结构化知识
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-
               <div className="text-sm text-muted-foreground px-2">
                 <p className="mb-3">试试这些问题：</p>
-                {/* Suggestion buttons */}
                 <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 justify-center">
                   {[
                     "帮我总结所有笔记的核心内容",
-                    "整理我关于学习的笔记",
-                    "查找与项目相关的信息",
-                    "聚合分析我的工作笔记",
+                    "搜索关于React的笔记",
+                    "列出我的所有标签",
+                    "分析我的工作笔记主题",
                   ].map((suggestion) => (
                     <Button
                       key={suggestion}
@@ -211,78 +232,122 @@ export default function AIChatPage() {
               </div>
             </div>
           ) : (
-            messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-              >
+            messages.map((msg) => (
+              <div key={msg.id} className="space-y-2">
                 <div
-                  className={`max-w-[90%] sm:max-w-[85%] ${
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-3 md:px-4 py-2 md:py-3"
-                      : "bg-muted rounded-2xl rounded-tl-sm px-3 md:px-4 py-2 md:py-3"
-                  }`}
+                  className={`flex gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
                 >
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {message.content}
-                  </p>
-
-                  {/* Related notes */}
-                  {message.relatedNotes && message.relatedNotes.length > 0 && (
-                    <div className="mt-3 md:mt-4 pt-2 md:pt-3 border-t border-border/50">
-                      <p className="text-xs font-medium mb-2 opacity-70">
-                        相关笔记：
-                      </p>
-                      <div className="space-y-2">
-                        {message.relatedNotes.map((note) => (
-                          <Link
-                            key={note.id}
-                            href={`/dashboard/notes/${note.id}`}
-                            className="block"
-                          >
-                            <Card className="hover:bg-background/50 transition-colors">
-                              <CardContent className="p-2 md:p-3">
-                                <div className="flex items-start gap-2">
-                                  <FileText className="h-4 w-4 mt-0.5 shrink-0 opacity-60" />
-                                  <div className="min-w-0">
-                                    <p className="font-medium text-sm truncate">
-                                      {note.title}
-                                    </p>
-                                    <p className="text-xs opacity-70 line-clamp-2 mt-1">
-                                      {note.snippet}
-                                    </p>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  <div
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted"
+                    }`}
+                  >
+                    {msg.role === "user" ? (
+                      <User className="h-4 w-4" />
+                    ) : (
+                      <Bot className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div
+                    className={`rounded-lg px-3 py-2 text-sm max-w-[85%] ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted"
+                    }`}
+                  >
+                    <p className="whitespace-pre-wrap">{msg.content || (isLoading ? " " : "")}</p>
+                  </div>
                 </div>
+
+                {msg.toolCalls && msg.toolCalls.length > 0 && (
+                  <div className="flex gap-2 ml-9">
+                    <div className="flex-1 space-y-1">
+                      {msg.toolCalls.map((tc, i) => (
+                        <Card key={i} className="bg-muted/30 border-border/30">
+                          <CardContent className="p-2 text-xs">
+                            <div className="flex items-center gap-1 text-muted-foreground mb-1">
+                              <Wrench className="h-3 w-3" />
+                              <span className="font-mono">{tc.tool}</span>
+                            </div>
+                            {tc.result != null ? (
+                              <p className="text-muted-foreground/70 truncate">
+                                {String(typeof tc.result === "string" ? tc.result : JSON.stringify(tc.result)).slice(0, 100)}
+                              </p>
+                            ) : null}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {msg.requiresConfirmation && (
+                  <div className="flex gap-2 ml-9">
+                    <Card className="flex-1 border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+                      <CardContent className="p-3">
+                        <div className="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-400 mb-2">
+                          <AlertCircle className="h-4 w-4" />
+                          需要确认
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          {msg.requiresConfirmation.action === "update_note"
+                            ? "Agent 建议修改笔记内容"
+                            : "Agent 请求执行以下操作"}
+                        </p>
+                        {msg.requiresConfirmation.payload ? (
+                          <pre className="text-xs bg-background/50 p-2 rounded mb-3 overflow-x-auto max-h-24">
+                            {JSON.stringify(msg.requiresConfirmation.payload, null, 2) ?? ""}
+                          </pre>
+                        ) : null}
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" className="h-7 text-xs">
+                            <Check className="h-3 w-3 mr-1" />
+                            确认
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-7 text-xs text-destructive">
+                            <X className="h-3 w-3 mr-1" />
+                            拒绝
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {msg.uiEvents && msg.uiEvents.length > 0 && (
+                  <div className="flex gap-2 ml-9">
+                    <div className="flex-1 space-y-2">
+                      {msg.uiEvents.map((uiEvent, i) => (
+                        <AgentUiRenderer
+                          key={i}
+                          event={uiEvent}
+                          onAction={() => {}}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))
           )}
 
-          {/* Loading state */}
           {isLoading && (
             <div className="flex justify-start">
               <div className="bg-muted rounded-2xl rounded-tl-sm px-3 md:px-4 py-2 md:py-3">
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">AI 正在分析您的笔记...</span>
+                  <span className="text-sm">Agent 思考中...</span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Scroll anchor */}
           <div ref={messagesEndRef} />
         </div>
       </div>
 
-      {/* Input area */}
       <div className="border-t border-border px-4 md:px-6 py-3 md:py-4 shrink-0">
         <div className="max-w-3xl mx-auto">
           <div className="flex gap-2 md:gap-3">
@@ -291,22 +356,25 @@ export default function AIChatPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="输入问题进行检索..."
+              placeholder="输入问题，Agent 将搜索笔记并回答..."
               className="min-h-[44px] max-h-32 resize-none text-sm"
               rows={1}
+              disabled={isLoading}
             />
-            <Button
-              onClick={handleSend}
-              disabled={!input.trim() || isLoading}
-              size="icon"
-              className="h-11 w-11 shrink-0"
-            >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
+            {isLoading ? (
+              <Button onClick={handleCancel} size="icon" variant="outline" className="h-11 w-11 shrink-0">
+                <Square className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSend}
+                disabled={!input.trim()}
+                size="icon"
+                className="h-11 w-11 shrink-0"
+              >
                 <Send className="h-4 w-4" />
-              )}
-            </Button>
+              </Button>
+            )}
           </div>
           <p className="text-xs text-muted-foreground mt-2 text-center">
             已加载 {notes.length} 篇笔记

@@ -59,14 +59,27 @@ export interface AiErrorResponse {
 
 export type ToolName = "search_notes" | "get_note" | "list_tags" | "propose_note_update";
 
+export type FrontendToolName =
+  | "insertAtCursor" | "replaceRange" | "replaceSelection"
+  | "scrollTo" | "highlightRange" | "updateTitle" | "addTags";
+
+export interface UiEvent {
+  type: "ui";
+  component: string;
+  props: Record<string, unknown>;
+  id?: string;
+}
+
 export type AgentStreamEvent =
-  | { type: "start"; id: string }
-  | { type: "text"; content: string }
-  | { type: "tool_call"; id: string; tool: string; args: unknown }
-  | { type: "tool_result"; id: string; result: unknown }
-  | { type: "requires_confirmation"; id: string; action: string; payload: unknown }
+  | { type: "run-started"; runId: string; timestamp?: string }
+  | { type: "text-delta"; content: string }
+  | { type: "tool-call-start"; id: string; tool: string; args: unknown }
+  | { type: "tool-call-end"; id: string }
+  | { type: "tool-result"; id: string; result: unknown }
+  | UiEvent
+  | { type: "human-in-the-loop"; id: string; action: string; payload: unknown }
   | { type: "error"; message: string }
-  | { type: "done" };
+  | { type: "run-finished"; runId?: string };
 
 export interface AgentChatRequest {
   message: string;
@@ -75,12 +88,15 @@ export interface AgentChatRequest {
     noteId?: number;
     title?: string;
     content?: string;
+    selection?: { from: number; to: number; text: string };
+    scrollPosition?: number;
+    visibleRange?: { from: number; to: number };
   };
 }
 
 export type WorkflowName = "search-summarize" | "organize-suggest" | "polish-check" | "search-draft";
 
-export type WorkflowStreamEvent = AgentStreamEvent | { type: "step"; step: string; status: "running" | "done" | "error" };
+export type WorkflowStreamEvent = AgentStreamEvent;
 
 export interface WorkflowRequest {
   workflow: WorkflowName;

@@ -49,7 +49,7 @@ Pre-commit hooks (Husky + lint-staged) auto-run ESLint fix and related Vitest te
 
 ### Key Directories
 
-- `components/` — business components (note-editor, app-sidebar, ai-search-dialog, etc.)
+- `components/` — business components (note-editor, app-sidebar, agent-chat-panel, etc.)
 - `components/ui/` — shadcn/ui primitives
 - `contexts/` — AuthContext and NotesContext providers (wrapped in root layout)
 - `hooks/` — custom hooks (e.g., use-mobile)

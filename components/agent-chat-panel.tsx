@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
+import { AgentUiRenderer } from "@/components/agent-ui-renderer";
+import { executeEditorTool, getEditorContext } from "@/lib/editor-bridge";
 import { useAgentStream } from "@/hooks/useAgentStream";
 
 interface AgentChatPanelProps {
@@ -15,12 +17,13 @@ interface AgentChatPanelProps {
     noteId?: number;
     title?: string;
     content?: string;
+    selection?: { from: number; to: number; text: string };
   };
 }
 
 export function AgentChatPanel({ noteContext }: AgentChatPanelProps) {
   const [input, setInput] = useState("");
-  const { messages, isLoading, error, sendMessage, cancel, clearMessages } = useAgentStream();
+  const { messages, isLoading, error, sendMessage, cancel, clearMessages, handleUiEvent, removeUiEvent, filterUiEvents, addUiEvent } = useAgentStream();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -32,7 +35,14 @@ export function AgentChatPanel({ noteContext }: AgentChatPanelProps) {
     if (!input.trim() || isLoading) return;
     const text = input.trim();
     setInput("");
-    await sendMessage(text, noteContext);
+    const ctx = getEditorContext();
+    const enrichedNoteContext = ctx.selection
+      ? { ...noteContext, selection: ctx.selection }
+      : noteContext;
+    const enrichedText = ctx.selection
+      ? `${text}\n\n[当前选中: "${ctx.selection.text.slice(0, 200)}"]`
+      : text;
+    await sendMessage(enrichedText, enrichedNoteContext);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -114,7 +124,7 @@ export function AgentChatPanel({ noteContext }: AgentChatPanelProps) {
                             <Wrench className="h-3 w-3" />
                             <span className="font-mono">{tc.tool}</span>
                           </div>
-                          {tc.result != null ? (
+                          {tc.result != null && tc.id !== "organize" ? (
                             <p className="text-muted-foreground/70 truncate">
                               {String(typeof tc.result === "string" ? tc.result : JSON.stringify(tc.result)).slice(0, 100)}
                             </p>
@@ -157,6 +167,54 @@ export function AgentChatPanel({ noteContext }: AgentChatPanelProps) {
                       </div>
                     </CardContent>
                   </Card>
+                </div>
+              )}
+
+              {msg.uiEvents && msg.uiEvents.length > 0 && (
+                <div className="flex gap-2 ml-9">
+                  <div className="flex-1 space-y-2">
+                    {msg.uiEvents.map((uiEvent, i) => (
+                      <AgentUiRenderer
+                        key={i}
+                        event={uiEvent}
+                        onAction={(action, data) => {
+                          if (action === "accept") {
+                            if (uiEvent.component === "preview-controls") {
+                              executeEditorTool("acceptPreview", {});
+                            } else {
+                              const d = data as { newText?: string };
+                              if (d.newText) {
+                                executeEditorTool("replaceSelection", { text: d.newText });
+                              }
+                            }
+                            removeUiEvent(msg.id, i);
+                          } else if (action === "discard") {
+                            executeEditorTool("discardPreview", {});
+                            removeUiEvent(msg.id, i);
+                          } else if (action === "preview-outline" || action === "preview-items") {
+                            const d = data as { summary?: string; outline?: { level?: number; text?: string }[]; actionItems?: { text?: string; checked?: boolean }[] };
+                            const summary = d.summary ?? "";
+                            const outline = d.outline ?? [];
+                            const actionItems = d.actionItems ?? [];
+                            const outlineMd = outline.map((o) => "  ".repeat(Math.max((o.level ?? 2) - 1, 0)) + "- " + (o.text ?? "")).join("\n");
+                            const itemsMd = actionItems.map((a) => "- [ ] " + (a.text ?? "")).join("\n");
+                            const blocks = [summary, outlineMd ? `## 大纲\n${outlineMd}` : "", itemsMd ? `## 待办事项\n${itemsMd}` : ""].filter(Boolean);
+                            executeEditorTool("insertPreviewText", { text: blocks.join("\n\n") + "\n" });
+                            filterUiEvents(msg.id, (e) => e.component === "outline-view" || e.component === "action-items");
+                            addUiEvent({ type: "ui", component: "preview-controls", props: { type: action === "preview-outline" ? "outline" : "items" } }, msg.id);
+                          } else if (action === "apply-tags") {
+                            const d = data as { tags?: string[] };
+                            if (d.tags) {
+                              executeEditorTool("addTags", { tags: d.tags });
+                            }
+                            removeUiEvent(msg.id, i);
+                          } else {
+                            removeUiEvent(msg.id, i);
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

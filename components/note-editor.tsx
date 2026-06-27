@@ -50,13 +50,16 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { getLocalNotes } from "@/lib/local-storage";
 import { useRouter } from "next/navigation";
+import { useNotes } from "@/contexts/NotesContext";
 import MarkdownIt from "markdown-it";
 import { useEditorOperations } from "@/hooks/useEditorOperations";
 import { useEditorShortcuts } from "@/hooks/useEditorShortcuts";
 import { AIPolishDialog } from "@/components/ai-polish-dialog";
+import { AIContextMenu } from "@/components/ai-context-menu";
+import { registerDefaultEditorTools } from "@/lib/editor-tools";
+import { registerEditorTool, unregisterEditorTool, storeEditorRef } from "@/lib/editor-bridge";
+import { PreviewMark } from "@/lib/preview-mark";
 import { toast } from "sonner";
 
 interface TiptapProps {
@@ -77,10 +80,16 @@ export default function Tiptap({
   const [showImageModal, setShowImageModal] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [showLinkDialog, setShowLinkDialog] = useState(false);
-  const useLocalStorage = !isSupabaseConfigured();
+  const { deleteNote } = useNotes();
   const [showPolishDialog, setShowPolishDialog] = useState(false);
   const [selectedText, setSelectedText] = useState("");
   const [polishRange, setPolishRange] = useState<{ from: number; to: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    open: boolean;
+    x: number;
+    y: number;
+    text: string;
+  }>({ open: false, x: 0, y: 0, text: "" });
 
   const router = useRouter();
 
@@ -105,6 +114,17 @@ export default function Tiptap({
         editor?.commands.insertContent(html);
 
         return true;
+      },
+      handleDOMEvents: {
+        contextmenu: (view, event) => {
+          const { from, to } = view.state.selection;
+          if (from === to) return false;
+          const text = view.state.doc.textBetween(from, to, " ");
+          if (!text.trim()) return false;
+          event.preventDefault();
+          setContextMenu({ open: true, x: event.clientX, y: event.clientY, text });
+          return true;
+        },
       },
       attributes: {
         class:
@@ -135,6 +155,7 @@ export default function Tiptap({
       FontFamily.configure({
         types: ["textStyle"],
       }),
+      PreviewMark,
       Image.configure({
         inline: false,
         allowBase64: true,
@@ -156,6 +177,16 @@ export default function Tiptap({
       debouncedOnChange(html);
     },
   });
+
+  useEffect(() => {
+    if (!editor) return;
+    const registeredTools = registerDefaultEditorTools(editor);
+    registeredTools.forEach((t) => registerEditorTool(t.name, t.execute));
+    storeEditorRef({ current: editor });
+    return () => {
+      registeredTools.forEach((t) => unregisterEditorTool(t.name));
+    };
+  }, [editor]);
 
   const operations = useEditorOperations(editor);
 
@@ -254,6 +285,13 @@ export default function Tiptap({
     setPolishRange({ from, to });
     setSelectedText(text);
     setShowPolishDialog(true);
+  }, [editor]);
+
+  const handleContextMenuResult = useCallback((result: string) => {
+    if (!editor) return;
+    const { from, to } = editor.state.selection;
+    if (from === to) return;
+    editor.chain().focus().deleteRange({ from, to }).insertContent(result).run();
   }, [editor]);
 
   const replaceWithPolish = useCallback((polishedText: string) => {
@@ -358,25 +396,13 @@ export default function Tiptap({
       action: {
         label: "删除",
         onClick: async () => {
-          if (useLocalStorage) {
-            const notes = getLocalNotes().filter((n) => n.id !== noteId);
-            localStorage.setItem("notes", JSON.stringify(notes));
-          } else {
-            const supabase = createClient();
-            if (!supabase) {
-              toast.error("数据库未配置，无法删除笔记");
-              return;
-            }
-            const { error } = await supabase.from("notes").delete().eq("id", noteId);
-            if (error) {
-              console.error("Error deleting note:", error);
-              toast.error("删除笔记失败");
-              return;
-            }
+          try {
+            await deleteNote(noteId);
+            toast.success("笔记已删除");
+            router.push("/dashboard");
+          } catch {
+            toast.error("删除笔记失败");
           }
-
-          toast.success("笔记已删除");
-          router.push("/dashboard");
         },
       },
       cancel: {
@@ -537,6 +563,13 @@ export default function Tiptap({
 
             <div className="flex items-center space-x-1 border-l border-gray-200 dark:border-gray-800 pl-1 md:pl-3">
               <button
+                onClick={() => setIsPreview(!isPreview)}
+                className={`flex items-center gap-1 p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${isPreview ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
+                title="切换 Markdown 预览"
+              >
+                <span className="text-xs md:text-sm font-mono font-bold">MD</span>
+              </button>
+              <button
                 onClick={openPolishDialog}
                 className="flex items-center gap-1 p-1.5 md:p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors duration-200"
                 title="润色 (Ctrl+Shift+P)"
@@ -680,6 +713,16 @@ export default function Tiptap({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AIContextMenu
+        editor={editor}
+        open={contextMenu.open}
+        x={contextMenu.x}
+        y={contextMenu.y}
+        selectedText={contextMenu.text}
+        onClose={() => setContextMenu((p) => ({ ...p, open: false }))}
+        onResult={handleContextMenuResult}
+      />
 
       {/* 图片插入对话框 */}
       {showImageModal && (

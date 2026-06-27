@@ -45,10 +45,20 @@ export function AIPolishDialog({
   const [polishedText, setPolishedText] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentInput, setCurrentInput] = useState(selectedText);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  useEffect(() => {
+    if (open) {
+      setCurrentInput(selectedText);
+      setPolishedText(null);
+      setError(null);
+    }
+  }, [open, selectedText]);
+
   const handlePolish = useCallback(async () => {
-    if (!selectedText.trim()) return;
+    const input = currentInput.trim();
+    if (!input) return;
     abortControllerRef.current?.abort();
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
@@ -58,7 +68,7 @@ export function AIPolishDialog({
 
     try {
       const data = await polishText(
-        { text: selectedText, style },
+        { text: input, style },
         abortController.signal
       );
       setPolishedText(data.polishedText);
@@ -71,7 +81,7 @@ export function AIPolishDialog({
         abortControllerRef.current = null;
       }
     }
-  }, [selectedText, style]);
+  }, [currentInput, style]);
 
   const handleConfirm = () => {
     if (polishedText) {
@@ -171,12 +181,14 @@ export function AIPolishDialog({
             <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
               {error}
             </div>
-          ) : polishedText ? (
+          ) : polishedText !== null ? (
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground font-medium">润色结果</p>
-              <div className="p-3 rounded-lg bg-primary/5 border border-primary/10 text-sm leading-relaxed whitespace-pre-wrap">
-                {polishedText}
-              </div>
+              <p className="text-xs text-muted-foreground font-medium">润色结果（可编辑）</p>
+              <textarea
+                value={polishedText}
+                onChange={(e) => setPolishedText(e.target.value)}
+                className="w-full min-h-[100px] p-3 rounded-lg bg-primary/5 border border-primary/10 text-sm leading-relaxed resize-y focus:outline-none focus:ring-1 focus:ring-primary"
+              />
             </div>
           ) : (
             <div className="flex items-center justify-center h-full py-8">
@@ -187,43 +199,60 @@ export function AIPolishDialog({
           )}
         </ScrollArea>
 
-        <DialogFooter className="gap-2">
+        <div className="flex flex-wrap gap-1.5 pt-2 border-t justify-end">
           {polishedText ? (
             <>
-              <Button variant="outline" onClick={handleReject} className="bg-transparent">
-                <X className="h-4 w-4 mr-1" />
+              <Button variant="outline" size="sm" onClick={handleReject} className="bg-transparent">
+                <X className="h-3.5 w-3.5 mr-1" />
                 取消
               </Button>
-              <Button variant="outline" onClick={handlePolish} disabled={loading} className="bg-transparent">
-                <RefreshCw className="h-4 w-4 mr-1" />
-                重新生成
+              <Button variant="outline" size="sm" onClick={async () => {
+                if (!polishedText) return;
+                setLoading(true);
+                setError(null);
+                setPolishedText(null);
+                try {
+                  const data = await polishText({ text: polishedText, style });
+                  setPolishedText(data.polishedText);
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "润色服务异常");
+                } finally {
+                  setLoading(false);
+                }
+              }} disabled={loading} className="bg-transparent">
+                <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                继续润色
               </Button>
-              <Button variant="outline" onClick={handleCopy} className="bg-transparent">
-                <Copy className="h-4 w-4 mr-1" />
+              <Button variant="outline" size="sm" onClick={handlePolish} disabled={loading} className="bg-transparent">
+                <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                重生成
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleCopy} className="bg-transparent">
+                <Copy className="h-3.5 w-3.5 mr-1" />
                 复制
               </Button>
-              <Button variant="outline" onClick={handleInsertBelow} className="bg-transparent">
-                <CornerDownLeft className="h-4 w-4 mr-1" />
+              <Button variant="outline" size="sm" onClick={handleInsertBelow} className="bg-transparent">
+                <CornerDownLeft className="h-3.5 w-3.5 mr-1" />
                 插入下方
               </Button>
-              <Button onClick={handleConfirm}>
-                <Check className="h-4 w-4 mr-1" />
-                确认替换
+              <Button size="sm" onClick={handleConfirm}>
+                <Check className="h-3.5 w-3.5 mr-1" />
+                替换
               </Button>
             </>
           ) : (
             <>
-              <Button variant="outline" onClick={handleReject} className="bg-transparent">
-                <X className="h-4 w-4 mr-1" />
+              <Button variant="outline" size="sm" onClick={handleReject} className="bg-transparent">
+                <X className="h-3.5 w-3.5 mr-1" />
                 取消
               </Button>
-              <Button onClick={handlePolish} disabled={loading}>
-                <Type className="h-4 w-4 mr-1" />
+              <Button size="sm" onClick={handlePolish} disabled={loading}>
+                <Type className="h-3.5 w-3.5 mr-1" />
                 开始润色
               </Button>
             </>
           )}
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

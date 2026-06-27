@@ -17,9 +17,12 @@ async function postJson<TResponse>(
   body: unknown,
   signal?: AbortSignal,
 ): Promise<TResponse> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   const response = await fetch(path, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(body),
     signal,
   });
@@ -36,6 +39,28 @@ async function postJson<TResponse>(
   }
 
   return data as TResponse;
+}
+
+export async function expandText(text: string, signal?: AbortSignal): Promise<string> {
+  const response = await fetch("/api/ai/expand", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+    signal,
+  });
+  if (!response.ok) throw new Error(`Expand failed with status ${response.status}`);
+  return response.json();
+}
+
+export async function condenseText(text: string, signal?: AbortSignal): Promise<string> {
+  const response = await fetch("/api/ai/condense", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+    signal,
+  });
+  if (!response.ok) throw new Error(`Condense failed with status ${response.status}`);
+  return response.json();
 }
 
 export async function polishText(
@@ -68,9 +93,12 @@ export async function agentChatStream(
   onEvent: (event: AgentStreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   const response = await fetch("/api/agent/chat/stream", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(request),
     signal,
   });
@@ -99,7 +127,7 @@ export async function agentChatStream(
       try {
         const event = JSON.parse(trimmed.slice(6)) as AgentStreamEvent;
         onEvent(event);
-        if (event.type === "done") return;
+        if (event.type === "run-finished") return;
       } catch {
         // skip malformed lines
       }
@@ -112,9 +140,12 @@ export async function workflowStream(
   onEvent: (event: WorkflowStreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   const response = await fetch("/api/agent/workflow/stream", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(request),
     signal,
   });
@@ -143,7 +174,7 @@ export async function workflowStream(
       try {
         const event = JSON.parse(trimmed.slice(6)) as WorkflowStreamEvent;
         onEvent(event);
-        if (event.type === "done") return;
+        if (event.type === "run-finished") return;
       } catch {
         // skip malformed lines
       }

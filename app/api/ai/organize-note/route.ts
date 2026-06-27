@@ -5,11 +5,18 @@ const NEST_API_BASE = process.env.NEST_API_BASE_URL || "http://localhost:3001";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const authHeader = request.headers.get("authorization");
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (authHeader) {
+      headers["Authorization"] = authHeader;
+    }
     const nestResponse = await fetch(
       `${NEST_API_BASE}/api/ai/organize-note`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(body),
       },
     );
