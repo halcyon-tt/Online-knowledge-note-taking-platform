@@ -12,20 +12,48 @@ import type {
   WorkflowStreamEvent,
 } from "@/types/ai";
 
+function getAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("access_token");
+}
+
+function buildHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const token = getAccessToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
+}
+
+export class AiUnauthorizedError extends Error {
+  constructor(message = "未登录或登录已过期") {
+    super(message);
+    this.name = "AiUnauthorizedError";
+  }
+}
+
+function handleUnauthorized() {
+  if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+    const redirect = encodeURIComponent(window.location.pathname);
+    window.location.href = `/login?redirect=${redirect}`;
+  }
+}
+
 async function postJson<TResponse>(
   path: string,
   body: unknown,
   signal?: AbortSignal,
 ): Promise<TResponse> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
   const response = await fetch(path, {
     method: "POST",
-    headers,
+    headers: buildHeaders(),
     body: JSON.stringify(body),
     signal,
   });
+
+  if (response.status === 401) {
+    handleUnauthorized();
+    throw new AiUnauthorizedError();
+  }
 
   const data = await response.json().catch(() => null);
 
@@ -42,25 +70,11 @@ async function postJson<TResponse>(
 }
 
 export async function expandText(text: string, signal?: AbortSignal): Promise<string> {
-  const response = await fetch("/api/ai/expand", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
-    signal,
-  });
-  if (!response.ok) throw new Error(`Expand failed with status ${response.status}`);
-  return response.json();
+  return postJson<string>("/api/ai/expand", { text }, signal);
 }
 
 export async function condenseText(text: string, signal?: AbortSignal): Promise<string> {
-  const response = await fetch("/api/ai/condense", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
-    signal,
-  });
-  if (!response.ok) throw new Error(`Condense failed with status ${response.status}`);
-  return response.json();
+  return postJson<string>("/api/ai/condense", { text }, signal);
 }
 
 export async function polishText(
@@ -88,23 +102,26 @@ export async function searchNotes(
   return postJson<SearchNotesResponse>("/api/ai/search-notes", request, signal);
 }
 
-export async function agentChatStream(
-  request: AgentChatRequest,
-  onEvent: (event: AgentStreamEvent) => void,
+async function streamSse<TEvent>(
+  path: string,
+  body: unknown,
+  onEvent: (event: TEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const response = await fetch("/api/agent/chat/stream", {
+  const response = await fetch(path, {
     method: "POST",
-    headers,
-    body: JSON.stringify(request),
+    headers: buildHeaders(),
+    body: JSON.stringify(body),
     signal,
   });
 
+  if (response.status === 401) {
+    handleUnauthorized();
+    throw new AiUnauthorizedError();
+  }
+
   if (!response.ok) {
-    throw new Error(`Agent request failed with status ${response.status}`);
+    throw new Error(`Request failed with status ${response.status}`);
   }
 
   const reader = response.body?.getReader();
@@ -125,9 +142,9 @@ export async function agentChatStream(
       const trimmed = line.trim();
       if (!trimmed || !trimmed.startsWith("data: ")) continue;
       try {
-        const event = JSON.parse(trimmed.slice(6)) as AgentStreamEvent;
+        const event = JSON.parse(trimmed.slice(6)) as TEvent;
         onEvent(event);
-        if (event.type === "run-finished") return;
+        if ((event as { type?: string }).type === "run-finished") return;
       } catch {
         // skip malformed lines
       }
@@ -135,49 +152,28 @@ export async function agentChatStream(
   }
 }
 
+export async function agentChatStream(
+  request: AgentChatRequest,
+  onEvent: (event: AgentStreamEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  return streamSse<AgentStreamEvent>(
+    "/api/agent/chat/stream",
+    request,
+    onEvent,
+    signal,
+  );
+}
+
 export async function workflowStream(
   request: WorkflowRequest,
   onEvent: (event: WorkflowStreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const response = await fetch("/api/agent/workflow/stream", {
-    method: "POST",
-    headers,
-    body: JSON.stringify(request),
+  return streamSse<WorkflowStreamEvent>(
+    "/api/agent/workflow/stream",
+    request,
+    onEvent,
     signal,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Workflow request failed with status ${response.status}`);
-  }
-
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("Response body is not readable");
-
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || !trimmed.startsWith("data: ")) continue;
-      try {
-        const event = JSON.parse(trimmed.slice(6)) as WorkflowStreamEvent;
-        onEvent(event);
-        if (event.type === "run-finished") return;
-      } catch {
-        // skip malformed lines
-      }
-    }
-  }
+  );
 }

@@ -2,6 +2,28 @@
 
 > **给后续执行 Agent 的要求：** 实施本计划时，必须使用 `superpowers:subagent-driven-development`（推荐）或 `superpowers:executing-plans`，按任务逐项执行。任务使用 `- [ ]` 复选框跟踪。
 
+---
+
+## 实施状态（2026-06-28 同步）
+
+| 阶段                                | 代码   | 验收             | 备注                                                                                                                |
+| ----------------------------------- | ------ | ---------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Backend Phase 0 契约                | 已完成 | ✅ fixtures 已建 | `ai-contracts.ts` / `ai-errors.ts` / `src/ais/fixtures/ai-samples.ts` 齐全                                          |
+| Backend Phase 1 `/ai/polish`        | 已实现 | ✅ 单测 3/3      | Phase 6 已加 `AuthGuard`、输入边界                                                                                  |
+| Backend Phase 2 `/ai/organize-note` | 已实现 | ✅ 单测 3/3      | Phase 6 已加 `AuthGuard`、`@MaxLength`                                                                              |
+| Backend Phase 3 `/ai/search-notes`  | 已实现 | ✅ 单测 2/2      | Phase 6 已改路径为 `/ai/search-notes`、加 `AuthGuard`                                                               |
+| Backend Phase 4 Agent Chat          | 已实现 | —                | **已被 `2026-06-27-ag-ui-integration.md` 取代**；Phase 6 拆出 `AgentsController`，路径已对齐为 `/agent/chat/stream` |
+| Backend Phase 5 Workflow            | 已实现 | —                | **已被 `2026-06-27-ag-ui-integration.md` 取代**；Phase 6 路径已对齐为 `/agent/workflow/stream`                      |
+| Frontend Phase 1 润色               | 已实现 | ✅ 单测齐全      | Buffer 透传 Bearer + 401 处理                                                                                       |
+| Frontend Phase 2 整理               | 已实现 | ⚠ 缺单测        | —                                                                                                                   |
+| Frontend Phase 3 跨笔记搜索         | 已实现 | ⚠ 缺单测        | Buffer 路径已切到 `/api/ai/search-notes`                                                                            |
+| Frontend Phase 4 Agent 流式         | 已实现 | ⚠ 缺单测        | Buffer 路径已切到 `/api/agent/chat/stream`                                                                          |
+| Frontend Phase 5 Workflow           | 已实现 | ⚠ 缺单测        | Buffer 路径已切到 `/api/agent/workflow/stream`                                                                      |
+
+**后续推进顺序：** AG-UI Phase 1 编辑器桥接 → Phase 4 上下文同步 → Phase 2 收尾 → Phase 5 体验闭环。Phase 6.4 剩余的 e2e 和 CI 与上述并行补齐。
+
+---
+
 **目标：** 将 AI 笔记能力拆成清晰的后端交付计划和前端接入计划，避免一边改前端一边改后端造成接口反复。
 
 **总体架构：** 当前 Next.js 仓库只做前端体验和轻量 Buffer/BFF 层；NestJS 仓库负责 AI 能力、LangGraph Agent 编排、状态机、工具权限、审计、限流和持久化写入。所有阶段都先冻结接口契约，再实现后端，后端验收通过后再接前端。
@@ -227,11 +249,13 @@ npm run build
 
 **验收：**
 
-- [ ] 空文本返回 `400`。
-- [ ] 非法 style 返回 `400`。
-- [ ] Provider 失败返回 `502` 和统一错误格式。
-- [ ] 成功返回 `polishedText`。
-- [ ] 不写数据库。
+- [x] 空文本返回 `400`。（代码已实现，需补 e2e）
+- [x] 非法 style 返回 `400`。（代码已实现，需补 e2e）
+- [x] Provider 失败返回 `502` 和统一错误格式。
+- [x] 成功返回 `polishedText`。
+- [x] 不写数据库。
+- [ ] **加 `AuthGuard`**（当前为 `@Public()`，Phase 6 修复）
+- [ ] 补 `*.spec.ts` 单测。
 
 ### Backend Phase 2：当前笔记整理接口
 
@@ -262,10 +286,12 @@ npm run build
 
 **验收：**
 
-- [ ] 返回严格 JSON。
-- [ ] 非法 JSON 转换为 `502 AI_INVALID_JSON`。
-- [ ] 超长内容返回 `400`。
-- [ ] 不写数据库。
+- [x] 返回严格 JSON。
+- [x] 非法 JSON 转换为 `502 AI_INVALID_JSON`。
+- [ ] 超长内容返回 `400`。（Phase 6 加输入上限校验）
+- [x] 不写数据库。
+- [ ] **加 `AuthGuard`**（当前为 `@Public()`，Phase 6 修复）
+- [ ] 补 `*.spec.ts` 单测。
 
 ### Backend Phase 3：跨笔记搜索和草稿
 
@@ -279,12 +305,17 @@ npm run build
 
 **验收：**
 
-- [ ] 能返回相关笔记。
-- [ ] 草稿不落库。
-- [ ] 请求体中的笔记数量和内容长度有上限。
-- [ ] Provider 失败有统一错误。
+- [x] 能返回相关笔记。
+- [x] 草稿不落库。
+- [ ] 请求体中的笔记数量和内容长度有上限。（Phase 6 补）
+- [x] Provider 失败有统一错误。
+- [ ] **统一路径**：当前是 `/ai/search`，契约要求 `/ai/search-notes`（Phase 6 修复）。
+- [ ] 补 `*.spec.ts` 单测。
 
 ### Backend Phase 4：LangGraph Agent Chat
+
+> **⚠ 本阶段已被 `2026-06-27-ag-ui-integration.md` 取代。** 事件格式以 AG-UI 为准（`run-started` / `text-delta` / `tool-call-start` / `tool-call-end` / `tool-result` / `ui` / `human-in-the-loop` / `run-finished`）。  
+> 实际路径为 `/ai/agent/chat/stream`，是因为挂在 `@Controller('ai')` 下。Phase 6 会决定是否拆出独立 Controller。
 
 **目标：** 交付 `POST /agent/chat/stream`，使用 LangGraph.js。
 
@@ -328,6 +359,9 @@ export type AgentStreamEvent =
 - [ ] 用户取消请求后后端停止执行。
 
 ### Backend Phase 5：Workflow Agent
+
+> **⚠ 本阶段已被 `2026-06-27-ag-ui-integration.md` 取代。** 事件以 `ui` 事件流形式输出（如 `outline-view` / `action-items` / `polish-progress`），由前端 `agent-ui-renderer.tsx` 渲染。  
+> 实际路径为 `/ai/agent/workflow/stream`。
 
 **目标：** 用 LangGraph 实现多步状态机。
 
@@ -513,3 +547,52 @@ npm run build
 - [ ] NestJS 承担 LangGraph、工具、状态机、权限、限流、审计。
 - [ ] 所有写操作都需要用户确认。
 - [ ] 当前仓库不包含无关 lockfile 或格式化改动。
+
+---
+
+## 九、Phase 6：收尾加固（2026-06-28 新增）
+
+**前置：** Phase 1-3 代码已落地，但与契约存在偏差且缺鉴权和验收。本阶段在 AG-UI Phase 1 启动前必须完成，否则 AG-UI 路径会建立在不一致的契约上。
+
+### 6.1 路径契约统一
+
+- [x] `/ai/search` 改为 `/ai/search-notes`，同步前端 `app/api/ai/search-notes/route.ts` 转发地址。
+- [x] 决策项：**拆出 `AgentsController`**（路径 `/agent/chat/stream` / `/agent/workflow/stream`），前端 Buffer 已对齐 `/api/agent/chat/stream` 和 `/api/agent/workflow/stream`。
+
+### 6.2 鉴权补齐
+
+- [x] `/ai/polish`、`/ai/organize-note`、`/ai/expand`、`/ai/condense` 移除 `@Public()`，`AisController` 类级别加 `@UseGuards(AuthGuard)`。
+- [x] 前端所有 Buffer 路由透传 `Authorization` 头（`condense` / `expand` 也补齐了）。
+- [x] `lib/ai-client.ts` 收口：统一从 `localStorage` 取 `access_token` 加 `Bearer`，401 自动跳 `/login?redirect=...`。
+
+### 6.3 输入边界校验
+
+- [x] `OrganizeNoteDto`（content `MaxLength` 20000、title 200、tags `ArrayMaxSize` 50）。
+- [x] `TextActionDto`（text `MaxLength` 10000）。
+- [x] `PolishNoteDto`（text 10000）、`CreateAiDto`（query 1000、notes `ArrayMaxSize` 100）。
+- [x] `AgentChatDto`（message 4000）、`WorkflowDto`（workflow `@IsIn` 收窄）。
+
+### 6.4 后端验收基础设施
+
+- [x] 新建 `src/ais/fixtures/ai-samples.ts` 放每个接口的请求/响应样例。
+- [x] `src/ais/ais.service.spec.ts` 覆盖 `polish` / `organizeNote` / `search` 的成功 + 错误路径（8 个用例）。
+- [x] `package.json` 加 Jest 配置（pnpm + ESM 兼容：`moduleNameMapper` 拦截 `@mikro-orm/*`，spec 内 `jest.mock('../notes/notes.service')`）。
+- [ ] `test/ai.e2e-spec.ts`（POST `/ai/polish` / `/ai/organize-note` / `/ai/search-notes` 三条路径成功 + 错误 + 401）。
+- [ ] GitHub Actions：`npm run test` + `npm run build`。
+
+### 6.5 前端 Buffer 验证
+
+- [x] `app/api/ai/**/route.ts` 全部走 `NEST_API_BASE_URL`，不再保留任何直接调豆包的回退分支。
+- [x] `lib/ai-client.ts` 已有的 fetch 增加 401 处理（跳登录）。
+
+### 6.6 同步两份计划文档
+
+- [x] 完成项写入本文档"实施状态"表格。
+- [x] 把 AG-UI 计划中依赖 Phase 6 的事项（路径、鉴权）勾选。
+
+**验收：**
+
+- [x] 所有 AI / Agent 路径与契约一致，无 `@Public()` 漏网。
+- [x] 后端 `npm run build` 通过；`ais.service.spec.ts` 8/8 通过。
+- [x] 前端 `npx tsc --noEmit` 通过；`lib/ai-client.test.ts` 4/4 通过。
+- [x] AG-UI Phase 1 可以基于干净的契约开始。

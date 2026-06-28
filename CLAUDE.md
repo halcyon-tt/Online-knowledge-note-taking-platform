@@ -100,7 +100,54 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 DOUBAO_API_KEY=...
 ```
 
-Optional: `DOUBAO_MODEL_ID`, `NEXT_PUBLIC_SITE_URL`
+Optional: `DOUBAO_MODEL_ID`, `NEXT_PUBLIC_SITE_URL`, `NEST_API_BASE_URL` (defaults to `http://localhost:3001`)
+
+## AI Agent Subsystem (AG-UI)
+
+This frontend pairs with a separate NestJS backend at `D:\Bt-Training\note-taking-backend\`. Together they implement an AG-UI–style AI agent layer on top of the editor. Key concepts:
+
+**Two-repo split:**
+
+- **Frontend (this repo)** is responsible for UI, editor commands, SSE parsing, and buffer routes (`app/api/**`). It does NOT contain agent orchestration or LLM provider code.
+- **Backend (`note-taking-backend/`)** owns LangGraph orchestration, tool registry, DTO validation, JWT auth, and Doubao provider calls. Routes: `/api/ai/*` (single-shot AI) and `/api/agent/*` (streaming agent + workflow).
+
+**Buffer routes (this repo) → NestJS:**
+
+- `app/api/ai/{polish,organize-note,search-notes,expand,condense}/route.ts` → forward to `NEST_API_BASE_URL/api/ai/*`
+- `app/api/agent/chat/stream/route.ts` and `workflow/stream/route.ts` → forward SSE
+- `app/api/agent/[convId]/{tool-result,context}/route.ts` → AG-UI feedback loops (frontend tool execution result, editor context push)
+
+All buffer routes pass through the `Authorization: Bearer` header from `localStorage.access_token`. `lib/ai-client.ts` handles 401 by redirecting to `/login?redirect=...`.
+
+**SSE event types** (`types/ai.ts`, mirrored in backend `src/ais/contracts/agent-contracts.ts`):
+`run-started`, `text-delta`, `tool-call-start`, `tool-call-end`, `tool-result`, `ui`, `human-in-the-loop`, `error`, `run-finished`. UI components are dispatched via the `ui` event's `component` field.
+
+**Editor bridge (`lib/editor-bridge.ts`):**
+Global module-level registry that lets AG-UI panel components reach into the TipTap editor without prop-drilling. Owns:
+
+- `registerEditorTool` / `executeEditorTool` — frontend tools the agent can invoke (e.g., `edit_note_text`, `insertAtCursor`, `replaceSelection`, `replaceRange`, `acceptPreview`, `discardPreview`)
+- `subscribeToEditor` / `getCurrentEditor` — reactive editor instance access
+- `subscribeToLockedSelection` / `setLockedSelection` — "locked selection" feature: user's editor selection survives clicking into the AI input box (ProseMirror selection visually disappears on blur, but our locked ref persists it so agent context push and `edit_note_text` fallback can use it)
+
+**Editor tools registry (`lib/editor-tools.ts`):**
+`registerDefaultEditorTools(editor)` returns the list of TipTap-backed tools that get registered into `editor-bridge` when the editor mounts. The key one is `edit_note_text`, which routes by `args.operation` ∈ {`insertAtCursor`, `replaceSelection`, `replaceRange`} and falls back to `replaceRange` using the locked selection if operation is missing/unknown. Successful edits flash a 2.8s green highlight via the `AiEditMark`.
+
+**Marks:**
+
+- `lib/preview-mark.ts` — `PreviewMark`: indigo shimmer for AI-generated preview content the user has not yet accepted
+- `lib/ai-edit-mark.ts` — `AiEditMark`: green fade for "AI just changed this" feedback; auto-removed after 2.8s
+
+**Agent panel data flow (`hooks/useAgentStream.ts`):**
+Maintains `conversationId` per session, parses SSE stream, intercepts `tool-call-start` for frontend tools (executes locally + posts result to `/api/agent/{convId}/tool-result`). UI events go through `AgentUiRenderer` (`components/agent-ui-renderer.tsx`), which dispatches to `components/ai-ui/*` by component name.
+
+**Editor → agent context push (`hooks/useEditorSync.ts`):**
+Debounce 600ms; only pushes when selection length ≥ 1; deduplicates identical payloads. Pushes `{selection, contentLength, noteRef}` to `/api/agent/{convId}/context`. Backend stores in `AgentSessionStore` and injects into the next chat's system prompt via `formatEditorContext`.
+
+**Planning docs (`docs/superpowers/plans/`):**
+
+- `2026-06-09-ai-note-agent-evolution.md` — contract / auth / e2e foundation (Phase 6 hardening complete)
+- `2026-06-27-ag-ui-integration.md` — AG-UI base wiring (Phase 0–5.1 complete; 5.2–5.5 superseded by next doc)
+- `2026-06-28-ag-ui-experience-leap.md` — active plan for "wow" experience upgrades (streaming typewriter, ghost text, thinking-chain viz)
 
 ## Testing
 

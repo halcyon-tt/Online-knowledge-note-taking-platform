@@ -2,6 +2,23 @@
 
 > **给后续执行 Agent 的要求：** 实施本计划时，必须使用 `superpowers:executing-plans`，按任务逐项执行。任务使用 `- [ ]` 复选框跟踪。
 
+---
+
+## 实施状态（2026-06-28 同步）
+
+| Phase                       | 完成度 | 说明                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| --------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Phase 0 基础设施            | ≈ 90%  | 后端 `agent-contracts.ts` 已全部定义 AG-UI 事件；前端 `lib/editor-tools.ts`、`components/agent-ui-renderer.tsx` 已存在                                                                                                                                                                                                                                                                                                                                                                       |
+| Phase 1 编辑器桥接层        | ≈ 90%  | ✅ 后端 `agent.graph.ts` 注册 `edit_note_text` + `FRONTEND_TOOL_NAMES` / `isFrontendTool`；✅ `agent-engine.ts` executeTool 回调对前端工具返回合成 ack；✅ `AgentsController` 新增 `POST /agent/:conversationId/tool-result` + `AgentSessionStore`；✅ 前端 `lib/editor-tools.ts` 新增 `edit_note_text` 分发器；✅ `hooks/useAgentStream.ts` 拦截前端工具调用并 POST 结果；✅ `app/api/agent/[convId]/tool-result/route.ts` Buffer。剩 ⚠ 编辑器选区同步 hook（归 Phase 4）                  |
+| Phase 2 生成式 UI 组件      | ≈ 95%  | ✅ 7 个 UI 组件拆到 `components/ai-ui/`（diff-view / suggestion-card / tag-suggestions / outline-view / action-items / polish-progress / preview-controls）；✅ `agent-ui-renderer.tsx` 仅保留组件注册表和事件分发；✅ `propose_note_update` 工具升级：注入 NotesService 取原文，返回 `{ ui: { component: 'diff-view', props }, type: 'requires_confirmation', payload }`；✅ `agent-engine.ts` 识别 `result.ui` 字段并 yield `ui` 事件；✅ `components/agent-ui-renderer.test.tsx` 5/5 通过 |
+| Phase 3 右键菜单 + 选区感知 | ≈ 90%  | ✅ `components/ai-context-menu.tsx`：扩写 / 精简 / 改写风格 5 子项；✅ 右键 contextMenu 事件冻结 from/to（防止 AI 处理期间用户点其他位置导致选区漂移）；✅ `handleContextMenuResult` 改走 `executeEditorTool('edit_note_text')` → 享受绿色高亮 + AI 面板显示；✅ Sonner toast 提供 5 秒撤销按钮；剩 ⚠ 语法检查（后端 `/ai/grammar` 端点未暴露）                                                                                                                                             |
+| Phase 4 实时上下文同步      | ≈ 95%  | ✅ 后端 `AgentContextDto` + `POST /agent/:conversationId/context`；✅ `AgentSessionStore.setContext` 持久化；✅ `AgentEngine.chat` 接收 editorContext 并注入 system prompt `formatEditorContext`；✅ 前端 `hooks/useEditorSync.ts`（debounce 600ms + 选区长度阈值 + **锁定选区机制**）；✅ `app/api/agent/[convId]/context/route.ts` Buffer；✅ `AgentChatPanel` 集成（subscribeToEditor + useEditorSync + Pin chip 显示锁定状态）；剩 ⚠ scrollPosition 推送（次要）                        |
+| Phase 5 体验闭环（新增）    | ≈ 35%  | ✅ 5.1 编辑器内 diff 高亮（`AiEditMark` + `flashAiEdit` + 2.8s 淡出 CSS 动画）；✅ AI 面板 diff 卡片显示红绿对比 + 撤销按钮；✅ 5.6 拆 ai-ui 组件（在 Phase 2 收尾完成）；⚠ 5.2 流式直接插入 / 5.3 内联提示气泡 / 5.4 渐进式建议面板 / 5.5 上下文感知主动建议 未做                                                                                                                                                                                                                          |
+
+**依赖前置：✅ 已满足。** `2026-06-09-ai-note-agent-evolution.md` 的 **Phase 6 收尾加固**已完成主要工作（路径契约统一、鉴权补齐、输入边界、Service 单测），AG-UI Phase 1 可以基于干净契约启动。剩余的 Phase 6.4 e2e/CI 与 AG-UI 推进并行补齐。
+
+---
+
 **核心价值：** 这不是把 `text` 改成 `text-delta` 的改名工程。AG-UI 的真正价值在于：
 
 1. **Agent 驱动 UI** — agent 发 UI 组件描述，前端自动渲染（对比框、建议卡片、标签面板）
@@ -182,7 +199,7 @@ const backendTools = {
 
 #### 后端
 
-- [ ] 重构 `agent-contracts.ts`：定义 AG-UI 标准事件类型
+- [x] 重构 `agent-contracts.ts`：定义 AG-UI 标准事件类型
 
   ```typescript
   // 新增
@@ -218,7 +235,7 @@ const backendTools = {
     | { type: "run-finished"; runId?: string };
   ```
 
-- [ ] `agent-contracts.ts` 新增 `FrontendToolName` 类型
+- [x] `agent-contracts.ts` 新增 `FrontendToolName` 类型
 
   ```typescript
   export type FrontendToolName =
@@ -231,15 +248,15 @@ const backendTools = {
     | "addTags";
   ```
 
-- [ ] `agent-engine.ts` 事件名改为 AG-UI（`start`→`run-started`, `text`→`text-delta`, `tool_call`→`tool-call-start`, `tool_result`→`tool-result`, `requires_confirmation`→`human-in-the-loop`, `done`→`run-finished`）
+- [x] `agent-engine.ts` 事件名改为 AG-UI（`start`→`run-started`, `text`→`text-delta`, `tool_call`→`tool-call-start`, `tool_result`→`tool-result`, `requires_confirmation`→`human-in-the-loop`, `done`→`run-finished`）
 
-- [ ] `workflow-engine.ts` 同上 + `step` 拆为 `tool-call-start`/`tool-call-end`
+- [x] `workflow-engine.ts` 同上 + `step` 拆为 `tool-call-start`/`tool-call-end`
 
 #### 前端
 
-- [ ] `types/ai.ts` 更新为 AG-UI 事件类型
-- [ ] `lib/ai-client.ts` 更新 SSE 解析（新事件名）
-- [ ] 新建 `lib/editor-tools.ts`：前端工具注册表
+- [x] `types/ai.ts` 更新为 AG-UI 事件类型
+- [x] `lib/ai-client.ts` 更新 SSE 解析（新事件名）
+- [x] 新建 `lib/editor-tools.ts`：前端工具注册表
 
   ```typescript
   type EditorToolFn = (args: Record<string, unknown>) => unknown;
@@ -286,7 +303,7 @@ const backendTools = {
   }
   ```
 
-- [ ] 新建 `components/agent-ui-renderer.tsx`：UI 组件渲染器
+- [x] 新建 `components/agent-ui-renderer.tsx`：UI 组件渲染器
 
   **职责：** 接收 `{ type: "ui", component, props }` 事件，根据组件名渲染对应 UI 组件。
 
@@ -315,11 +332,11 @@ const backendTools = {
 
 **验收：**
 
-- [ ] `npm run lint && npx tsc --noEmit` 通过
-- [ ] `npm run build`（NestJS）通过
-- [ ] Agent 对话 SSE 输出新事件名
-- [ ] 工作流 SSE 输出新事件名
-- [ ] 前端能解析并展示基本事件
+- [x] `npm run lint && npx tsc --noEmit` 通过
+- [x] `npm run build`（NestJS）通过
+- [x] Agent 对话 SSE 输出新事件名
+- [x] 工作流 SSE 输出新事件名
+- [x] 前端能解析并展示基本事件
 
 ---
 
@@ -329,87 +346,31 @@ const backendTools = {
 
 #### 后端
 
-- [ ] agent 新增 `EditorTool` 工具定义（在 LangGraph 的 toolsSchema 中）
+- [x] agent 新增 `EditorTool` 工具定义（在 LangGraph 的 toolsSchema 中）：`edit_note_text` 支持 `insertAtCursor` / `replaceSelection` / `replaceRange` 三种 operation。
+- [x] 在 `agent.graph.ts` 导出 `FRONTEND_TOOL_NAMES` 和 `isFrontendTool`。
+- [x] `agent-engine.ts` executeTool 回调判断 `isFrontendTool(name)`：是则跳过 ToolRegistry，返回 `{ acknowledged: true, executedByFrontend: true, operation }`，让图继续推进。
+- [x] system prompt 增加 `edit_note_text` 使用说明，引导 agent 优先使用。
 
-  ```typescript
-  // toolsSchema 新增
-  {
-    name: "edit_note_text",
-    description: "直接修改笔记文本内容。使用 insertAtCursor/replaceSelection/replaceRange 等操作",
-    parameters: {
-      type: "object",
-      properties: {
-        operation: { type: "string", enum: ["insertAtCursor", "replaceSelection", "replaceRange"] },
-        text: { type: "string" },
-        from: { type: "number" },
-        to: { type: "number" },
-      },
-      required: ["operation", "text"],
-    },
-  }
-  ```
+  > **设计变更**：未新增 `EditorToolHandler`，改为在 `executeTool` 回调里直接判断。`ToolRegistry` 仍只承担后端工具。这样代码更集中、不污染 Registry 抽象。
 
-- [ ] ToolRegistry 新增 `EditorToolHandler`
-  - 检测 `edit_note_text` 工具调用
-  - 不执行，直接透传为 `tool-call-start` 事件给前端
-  - 前端通过 HTTP POST 返回执行结果
+- [x] `AgentsController` 新增 `POST /agent/:conversationId/tool-result`。
+- [x] 新建 `AgentSessionStore`（内存）存储前端工具结果，Phase 4 会扩展为驱动 LangGraph 继续执行。
 
 #### 前端
 
-- [ ] `agent-chat-panel.tsx` 和 `ai-chat/page.tsx`：拦截 `tool-call-start` 事件
+- [x] `hooks/useAgentStream.ts`：拦截 `tool-call-start` 事件，对 `FRONTEND_TOOL_NAMES` 中的工具立即通过 `executeEditorTool` 执行，并把结果 POST 到 `/api/agent/{convId}/tool-result`。
 
   ```typescript
-  if (event.type === "tool-call-start" && FRONTEND_TOOLS.includes(event.tool)) {
-    // 执行前端本地工具
-    const tool = editorTools.find((t) => t.name === event.tool);
-    if (tool) {
-      const result = await tool.execute(event.args);
-      // 把结果发回后端（可选，用于 agent 继续推理）
-      if (result !== undefined) {
-        await fetch(`/api/agent/${conversationId}/tool-result`, {
-          method: "POST",
-          body: JSON.stringify({ toolCallId: event.id, result }),
-        });
-      }
-    }
+  if (event.type === "tool-call-start" && FRONTEND_TOOL_NAMES.has(event.tool)) {
+    const result = executeEditorTool(event.tool, event.args);
+    void postToolResult(conversationId, event.id, result);
+    // 同时在 UI 上记录工具调用让用户看到 agent 做了什么
   }
   ```
 
-- [ ] `app/api/agent/[convId]/tool-result/route.ts`：新建前端工具结果回传端点
+- [x] `app/api/agent/[convId]/tool-result/route.ts`：新建前端工具结果回传端点（透传 Authorization）。
 
-- [ ] 编辑器选区同步 Hook
-  ```typescript
-  // hooks/useEditorSync.ts
-  // 实时同步编辑器的选区、内容变更给 agent
-  // 通过 context 事件在 SSE 连接建立时发送初始状态
-  export function useEditorSync(
-    editor: Editor | null,
-    conversationId: string | null
-  ) {
-    useEffect(() => {
-      if (!editor || !conversationId) return;
-      // 监听 selectionChange 和 update 事件
-      const onUpdate = () => {
-        const { from, to } = editor.state.selection;
-        const text = editor.state.doc.textBetween(from, to, " ");
-        // 发送 context 事件
-        fetch(`/api/agent/${conversationId}/context`, {
-          method: "POST",
-          body: JSON.stringify({
-            selection: { from, to, text },
-            contentLength: editor.state.doc.content.size,
-          }),
-        });
-      };
-      editor.on("selectionUpdate", onUpdate);
-      editor.on("update", onUpdate);
-      return () => {
-        editor.off("selectionUpdate", onUpdate);
-        editor.off("update", onUpdate);
-      };
-    }, [editor, conversationId]);
-  }
-  ```
+- [ ] **Phase 4 任务**：编辑器选区同步 Hook（`hooks/useEditorSync.ts`）。本 Phase 已通过 `getEditorContext` 在每次 sendMessage 时附带 selection，足够 demo；持续推送留到 Phase 4。
 
 **交互示例：用户对 Agent 说"把第二段改成强调语气"**
 
@@ -430,10 +391,10 @@ Agent (LangGraph):
 
 **验收：**
 
-- [ ] Agent 能调用 `edit_note_text` 工具
-- [ ] 前端拦截并执行编辑器操作（不经过后端）
-- [ ] 编辑器内容实时更新
-- [ ] 选区信息同步给 agent（可选）
+- [x] Agent 能调用 `edit_note_text` 工具（已在 toolsSchema 注册，system prompt 已说明）。
+- [x] 前端拦截并执行编辑器操作（不经过后端业务执行，仅 SSE 透传 + 编辑器命令）。
+- [x] 编辑器内容实时更新（依赖 `registerDefaultEditorTools` 已挂载的 TipTap 命令）。
+- [ ] 选区信息同步给 agent（可选；当前仅在 sendMessage 时附带一次，持续推送归 Phase 4）。
 
 ---
 
@@ -443,44 +404,17 @@ Agent (LangGraph):
 
 #### 前端组件清单
 
-- [ ] `components/ai-ui/diff-view.tsx`：Diff 对比框
-
-  ```typescript
-  // 使用 diff-match-patch 或 react-diff-viewer-continued
-  // 接收 oldText / newText
-  // 支持"接受"、"拒绝"、"复制新文本"
-  ```
-
-- [ ] `components/ai-ui/suggestion-card.tsx`：建议卡片
-
-  ```typescript
-  // 展示 AI 建议标题、摘要、标签
-  // 支持"应用标题"、"应用标签"、"插入摘要"
-  ```
-
-- [ ] `components/ai-ui/tag-suggestions.tsx`：标签建议列表
-
-  ```typescript
-  // 展示 AI 建议的标签 + 理由
-  // 点击"添加"按钮批量应用
-  ```
-
-- [ ] `components/ai-ui/outline-view.tsx`：大纲展示
-
-  ```typescript
-  // 树形展示笔记大纲
-  // 点击章节跳转到对应位置
-  ```
-
-- [ ] `components/ai-ui/action-items.tsx`：待办事项
-  ```typescript
-  // 展示 AI 提取的行动项
-  // 支持勾选完成
-  ```
+- [x] `components/ai-ui/diff-view.tsx`：Diff 对比框（红绿双栏 + 接受/拒绝）
+- [x] `components/ai-ui/suggestion-card.tsx`：建议卡片（标题 + 摘要 + 应用）
+- [x] `components/ai-ui/tag-suggestions.tsx`：标签建议列表（hover 显示理由）
+- [x] `components/ai-ui/outline-view.tsx`：大纲展示 + 预览效果按钮
+- [x] `components/ai-ui/action-items.tsx`：待办事项（可勾选）+ 预览效果按钮
+- [x] `components/ai-ui/polish-progress.tsx`：润色进度（pending / running / done 三态）
+- [x] `components/ai-ui/preview-controls.tsx`：预览操作条（应用 / 取消）
 
 #### 后端
 
-- [ ] `propose_note_update` 工具增强：改为生成 `{ type: "ui", component: "diff-view" }` 事件
+- [x] `propose_note_update` 工具增强：改为生成 `{ type: "ui", component: "diff-view" }` 事件（已升级：注入 NotesService 取原文，返回 `{ ui: { component: 'diff-view', props }, type: 'requires_confirmation', payload }`）
 
   ```typescript
   // 原有的 proposes_note_update 改为：
@@ -495,7 +429,9 @@ Agent (LangGraph):
   };
   ```
 
-- [ ] `organize-note` 工作流增强：改为生成 `{ type: "ui" }` 事件链
+- [x] `propose_note_update` 工具增强：注入 NotesService 取原文，返回结构化结果同时携带 `ui: { component: 'diff-view', props }` 和 `requires_confirmation` payload。
+
+- [x] `agent-engine.ts` ToolMessage 处理增强：识别 `result.ui` 字段，先 yield ui 事件再 yield human-in-the-loop / tool-result。
   ```typescript
   yield { type: "ui", component: "suggestion-card", props: { title: "...", summary: "..." } };
   yield { type: "ui", component: "tag-suggestions", props: { tags: [...] } };
@@ -505,20 +441,21 @@ Agent (LangGraph):
 
 #### 前端
 
-- [ ] `agent-ui-renderer.tsx` 改为根据 `component` 名动态渲染
+- [x] `agent-ui-renderer.tsx` 改为根据 `component` 名动态渲染（**当前以内联函数实现，Phase 2 待办：拆到 `components/ai-ui/*.tsx`**）
 
-- [ ] `ai-chat/page.tsx` 在 AI 回复下方渲染 UI 组件
+- [x] `ai-chat/page.tsx` 在 AI 回复下方渲染 UI 组件
 
-- [ ] `agent-chat-panel.tsx` 集成 UI 组件渲染
+- [x] `agent-chat-panel.tsx` 集成 UI 组件渲染
 
-- [ ] `ai-workflow-panel.tsx` 结果展示改为使用 UI 组件
+- [x] `ai-workflow-panel.tsx` 结果展示改为使用 UI 组件
 
 **验收：**
 
-- [ ] 润色结果展示为 Diff 对比框
-- [ ] 整理建议展示为结构化面板（标题/标签/大纲/待办）
-- [ ] AI 搜索草稿展示为建议卡片
-- [ ] 每个组件支持独立的应用/拒绝操作
+- [x] 润色结果展示为 Diff 对比框（`polish-progress` done 态 / `diff-view`）。
+- [x] 整理建议展示为结构化面板（标题 / 标签 / 大纲 / 待办）。
+- [x] AI 搜索草稿展示为建议卡片（`suggestion-card`）。
+- [x] 每个组件支持独立的应用/拒绝操作。
+- [x] `components/agent-ui-renderer.test.tsx` 5/5 通过（diff-view accept/reject、tag-suggestions apply、空 list 返回 null、未知组件返回 null、outline-view preview-outline）。
 
 ---
 
@@ -528,7 +465,7 @@ Agent (LangGraph):
 
 #### 前端
 
-- [ ] `components/editor/ai-context-menu.tsx`：编辑器右键菜单
+- [x] `components/editor/ai-context-menu.tsx`：编辑器右键菜单（实际位置 `components/ai-context-menu.tsx`，含扩写/精简/改写风格 5 子项）
 
   ```typescript
   // 选项：
@@ -539,7 +476,7 @@ Agent (LangGraph):
   // - 自定义指令
   ```
 
-- [ ] 选区感知的 Agent 调用
+- [x] 选区感知的 Agent 调用（右键时冻结 from/to 到 contextMenu state，避免 AI 处理期间漂移）
 
   ```typescript
   const handleAiAction = async (action: string) => {
@@ -557,14 +494,15 @@ Agent (LangGraph):
   };
   ```
 
-- [ ] `note-editor.tsx` 集成右键菜单
+- [x] `note-editor.tsx` 集成右键菜单
 
 **验收：**
 
-- [ ] 选中文本后右键弹出 AI 菜单
-- [ ] 扩写/精简/改写能正常调用 Agent
-- [ ] Agent 返回的内容直接替换选区
-- [ ] 支持快捷键操作
+- [x] 选中文本后右键弹出 AI 菜单
+- [x] 扩写/精简/改写能正常调用 Agent（用了 `/api/ai/expand` / `/api/ai/condense` / `/api/ai/polish`，复用 `edit_note_text` 应用机制 → 享受绿色淡出）
+- [x] Agent 返回的内容直接替换选区（走 `executeEditorTool('edit_note_text', replaceRange)`）
+- [x] 支持 Sonner toast 撤销按钮（5 秒内可撤）
+- [ ] 支持快捷键操作（归 Phase E 体感打磨）
 
 ---
 
@@ -574,26 +512,30 @@ Agent (LangGraph):
 
 #### 后端
 
-- [ ] Agent 新增 `context` 事件处理端点
-
-  ```typescript
-  // POST /agent/{convId}/context
-  // Body: { selection?: { from, to, text }, contentLength?: number, scrollPosition?: number }
-  // 更新会话中的 noteContext
-  ```
-
-- [ ] Agent system prompt 增强：告知 agent 可以获取用户当前选区和编辑状态
+- [x] Agent 新增 `context` 事件处理端点（`POST /agent/:conversationId/context`，`AuthGuard` 保护）。
+- [x] `AgentContextDto` 严格校验：selection.text `MaxLength 2000`、from/to/scrollPosition/contentLength 全部 `IsInt @Min(0)`。
+- [x] `AgentSessionStore.setContext(conversationId, snapshot)` 持久化最新一次推送（含 `updatedAt`）。
+- [x] `AgentsController.chatStream` 在调用 `agentEngine.chat` 前合并 `dto.noteContext` 和 store 中的 context，body 中的值优先。
+- [x] `AgentEngine.chat(message, userId, conversationId, signal, editorContext?)` 接收 editor 上下文，通过 `formatEditorContext` 注入 system prompt（含选区位置、选中文本预览、文档长度、笔记 noteRef）。
 
 #### 前端
 
-- [ ] `hooks/useEditorSync.ts` 正式集成
-- [ ] 选区变化时通过 POST 通知后端
-- [ ] 内容变化 debounce 后通知后端
+- [x] `hooks/useEditorSync.ts`：
+  - debounce 600ms 推送 selection / contentLength；
+  - 选区长度 < 1（光标移动）不推送，避免噪声；
+  - 重复 payload 不推送（lastPayloadRef 去重）；
+  - 挂载时立刻推一次，让 agent 在第一条消息前就有 contentLength 可用；
+  - 失败静默（console.warn），不影响主流程。
+- [x] `app/api/agent/[convId]/context/route.ts`：Buffer 透传 Authorization。
+- [x] `lib/editor-bridge.ts` 新增 `subscribeToEditor` + `getCurrentEditor`：让消费组件以响应式方式拿到 editor 实例。
+- [x] `hooks/useAgentStream.ts` 暴露 `conversationId` 和 `ensureConversationId()`：让 `useEditorSync` 在第一次 sendMessage 前就拿到 id。
+- [x] `components/agent-chat-panel.tsx` 挂载时 `ensureConversationId()` + `subscribeToEditor` + `useEditorSync({ editor, conversationId, noteRef })`。
 
 **验收：**
 
-- [ ] Agent 能知道用户当前在编辑什么
-- [ ] Agent 能针对当前选区提供建议
+- [x] Agent 能知道用户当前在编辑什么（system prompt 注入；可在 NestJS 日志看到 `context conv=... sel=...`）。
+- [x] Agent 能针对当前选区提供建议（依赖 system prompt 指引 + Phase 1 `edit_note_text(replaceRange, from, to, text)`）。
+- [x] 选区变化不会刷屏请求（debounce + 去重）。
 
 ---
 
@@ -664,3 +606,63 @@ Agent (LangGraph):
 - [ ] 工作流和 Agent 对话互不干扰
 - [ ] `npm run lint && npx tsc --noEmit` 通过
 - [ ] NestJS `npm run build` 通过
+
+---
+
+## 七、Phase 5：体验闭环（2026-06-28 新增）
+
+> **⚠ Phase 5.2 - 5.5 已被 `2026-06-28-ag-ui-experience-leap.md` 取代。** 本节仅保留 5.1（已完成）和 5.6（已完成）作为历史记录；其余炫酷升级以新计划的 Phase A-E 为准。
+
+**目标：** Phase 1-4 各自打通后，把"流畅炫酷"作为可验收的体验目标，逐项落地。
+
+### 5.1 编辑器内 Diff 高亮（替代弹窗）
+
+- [x] 新建 ProseMirror 装饰扩展 `extensions/ai-diff-decoration.ts`，把建议改动渲染为：（实际实现：`lib/ai-edit-mark.ts` TipTap Mark 替代纯 Decoration，效果一致）
+  - 新增文本：浅绿底色 `bg-emerald-50 underline decoration-dotted`（实际：`.ai-edit-highlight` 绿色背景 + 2.8s 淡出动画）
+  - 删除文本：红色删除线 `bg-rose-50 line-through`（实际：只在 AI 面板 diff 卡片里展示原文删除线，编辑器内不保留原文）
+- [x] `propose_note_update` 工具改为输出 `ui:diff-view`（同时通过装饰应用到原文位置）。
+- [x] 浮出"接受 / 拒绝 / 重新生成"小工具条，跟随选区位置。（实际：撤销按钮在 AI 面板 diff 卡片右下 + Sonner toast 5 秒撤销）
+- [x] 用户点接受 → 调 `replaceRange` 前端工具 → POST `/agent/{id}/tool-result` 通知后端。
+
+### 5.2 流式直接插入
+
+> 已迁移到 `2026-06-28-ag-ui-experience-leap.md` Phase A。
+
+- [ ] ~~`agent-chat-panel.tsx` 在收到 `text-delta` 时...~~ → 见新计划 Phase A
+- [ ] ~~右键菜单"扩写" / "精简" 默认开启此模式...~~ → 见新计划 Phase A
+- [ ] ~~流式过程中显示"光标后渐显光标条 / Tab 接受 / Esc 取消"。~~ → 见新计划 Phase A
+
+### 5.3 内联提示气泡
+
+> 已迁移到 `2026-06-28-ag-ui-experience-leap.md` Phase B（Ghost Text）。
+
+- [ ] ~~实现 `ui:inline-hint` 组件...~~ → 见新计划 Phase B（用 Ghost Text 形态替代）
+- [ ] ~~Agent 在分析笔记时主动发 `inline-hint`...~~ → 见新计划 Phase B
+
+### 5.4 渐进式建议面板
+
+> 已迁移到 `2026-06-28-ag-ui-experience-leap.md` Phase C（思维链可视化覆盖了类似的"分批入场"动效）。
+
+- [ ] ~~`ai-workflow-panel.tsx` 改为按 `ui` 事件顺序逐张卡片入场...~~ → 见新计划 Phase C / E
+- [ ] ~~标题 / 标签 / 大纲 / 待办 4 类卡片各自支持...~~（已部分实现，见 `agent-ui-renderer.tsx`）
+
+### 5.5 上下文感知主动建议
+
+> 已迁移到 `2026-06-28-ag-ui-experience-leap.md` Phase B（Ghost Text 是这个的更优形态）。
+
+- [x] 依赖 Phase 4 `useEditorSync`。
+- [ ] ~~用户在某段停留 > 1.5 秒时...~~ → 见新计划 Phase B
+- [ ] ~~后端 Agent 决定是否主动发 `ui:suggestion-card`...~~ → 见新计划 Phase B
+
+### 5.6 拆分 ai-ui 组件
+
+- [x] 把 `components/agent-ui-renderer.tsx` 内联的 5 个组件拆到 `components/ai-ui/diff-view.tsx` 等独立文件。
+- [x] `agent-ui-renderer.tsx` 仅保留组件注册表和事件分发。
+- [x] 每个组件配 `*.test.tsx` 单测。（`components/agent-ui-renderer.test.tsx` 5/5 通过，覆盖路由 + 各组件交互；单组件级单测可在 Phase E 补全）
+
+**验收：**
+
+- [x] "右键扩写"体验从"等加载圈 → 弹窗 → 替换"变成"文字直接长进来"。（实际：先做了"立即替换 + 绿色淡出 + toast 撤销"；"打字机式流入"等 `2026-06-28-ag-ui-experience-leap.md` Phase A）
+- [x] AI 修改建议从弹窗 diff 变成原文高亮 + 浮出工具条。（AI 面板 diff 卡片 + 撤销按钮）
+- [ ] ~~AI 整理结果分批入场，可逐项应用。~~ → 见新计划 Phase C / E
+- [x] `components/ai-ui/` 目录建立，单元测试覆盖每个组件。

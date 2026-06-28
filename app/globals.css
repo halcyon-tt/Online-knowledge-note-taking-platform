@@ -427,6 +427,34 @@ body {
   box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.25);
 }
 
+/* AI edit highlight：替换 / 插入后 2.5 秒淡出，提示用户"这里是 AI 改的" */
+.ai-edit-highlight {
+  background-color: rgba(34, 197, 94, 0.25);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.4);
+  border-radius: 2px;
+  animation: aiEditFade 2.8s ease-out forwards;
+}
+
+.dark .ai-edit-highlight {
+  background-color: rgba(34, 197, 94, 0.18);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.35);
+}
+
+@keyframes aiEditFade {
+  0% {
+    background-color: rgba(34, 197, 94, 0.35);
+    box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.6);
+  }
+  20% {
+    background-color: rgba(34, 197, 94, 0.32);
+    box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.55);
+  }
+  100% {
+    background-color: rgba(34, 197, 94, 0);
+    box-shadow: 0 0 0 1px rgba(34, 197, 94, 0);
+  }
+}
+
 @keyframes shimmer {
   0% {
     background-position: 200% 0;

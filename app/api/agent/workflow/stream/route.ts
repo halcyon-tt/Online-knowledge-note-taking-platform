@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     const nestResponse = await fetch(
-      `${NEST_API_BASE}/api/ai/agent/workflow/stream`,
+      `${NEST_API_BASE}/api/agent/workflow/stream`,
       {
         method: "POST",
         headers,

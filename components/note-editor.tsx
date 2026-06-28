@@ -58,8 +58,9 @@ import { useEditorShortcuts } from "@/hooks/useEditorShortcuts";
 import { AIPolishDialog } from "@/components/ai-polish-dialog";
 import { AIContextMenu } from "@/components/ai-context-menu";
 import { registerDefaultEditorTools } from "@/lib/editor-tools";
-import { registerEditorTool, unregisterEditorTool, storeEditorRef } from "@/lib/editor-bridge";
+import { registerEditorTool, unregisterEditorTool, storeEditorRef, executeEditorTool } from "@/lib/editor-bridge";
 import { PreviewMark } from "@/lib/preview-mark";
+import { AiEditMark } from "@/lib/ai-edit-mark";
 import { toast } from "sonner";
 
 interface TiptapProps {
@@ -89,7 +90,9 @@ export default function Tiptap({
     x: number;
     y: number;
     text: string;
-  }>({ open: false, x: 0, y: 0, text: "" });
+    from: number;
+    to: number;
+  }>({ open: false, x: 0, y: 0, text: "", from: 0, to: 0 });
 
   const router = useRouter();
 
@@ -122,7 +125,8 @@ export default function Tiptap({
           const text = view.state.doc.textBetween(from, to, " ");
           if (!text.trim()) return false;
           event.preventDefault();
-          setContextMenu({ open: true, x: event.clientX, y: event.clientY, text });
+          // 把选区位置一起冻结，避免 AI 处理期间用户点其他位置导致选区漂移
+          setContextMenu({ open: true, x: event.clientX, y: event.clientY, text, from, to });
           return true;
         },
       },
@@ -156,6 +160,7 @@ export default function Tiptap({
         types: ["textStyle"],
       }),
       PreviewMark,
+      AiEditMark,
       Image.configure({
         inline: false,
         allowBase64: true,
@@ -289,10 +294,35 @@ export default function Tiptap({
 
   const handleContextMenuResult = useCallback((result: string) => {
     if (!editor) return;
-    const { from, to } = editor.state.selection;
+    const { from, to, text: oldText } = contextMenu;
     if (from === to) return;
-    editor.chain().focus().deleteRange({ from, to }).insertContent(result).run();
-  }, [editor]);
+    // 走 AG-UI edit_note_text 链路：享受绿色淡出高亮 + AI 面板里也能看到
+    const applyResult = executeEditorTool("edit_note_text", {
+      operation: "replaceRange",
+      from,
+      to,
+      text: result,
+    }) as { applied?: boolean } | null;
+    if (!applyResult?.applied) {
+      toast.error("应用 AI 结果失败");
+      return;
+    }
+    // 提供 toast 撤销（5 秒内可用）
+    toast.success("AI 已替换", {
+      duration: 5000,
+      action: {
+        label: "撤销",
+        onClick: () => {
+          executeEditorTool("edit_note_text", {
+            operation: "replaceRange",
+            from,
+            to: from + result.length,
+            text: oldText,
+          });
+        },
+      },
+    });
+  }, [editor, contextMenu]);
 
   const replaceWithPolish = useCallback((polishedText: string) => {
     if (!editor || !polishRange) return;

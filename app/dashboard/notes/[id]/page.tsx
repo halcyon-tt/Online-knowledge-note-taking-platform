@@ -227,7 +227,7 @@ export default function NotePage({ params }: PageProps) {
         </div>
       )}
       {showAgent && (
-        <div className="w-80 border-l bg-background flex flex-col shrink-0">
+        <div className="w-[420px] border-l bg-background flex flex-col shrink-0">
           <AgentChatPanel
             noteContext={{
               noteId: Number(id),
@@ -238,7 +238,7 @@ export default function NotePage({ params }: PageProps) {
         </div>
       )}
       {showWorkflow && (
-        <div className="w-80 border-l bg-background flex flex-col shrink-0">
+        <div className="w-[420px] border-l bg-background flex flex-col shrink-0">
           <AIWorkflowPanel
             noteId={Number(id)}
             title={note.title || ""}

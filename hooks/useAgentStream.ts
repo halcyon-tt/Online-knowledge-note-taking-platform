@@ -5,6 +5,10 @@ import { agentChatStream } from "@/lib/ai-client";
 import type { AgentStreamEvent, UiEvent, FrontendToolName } from "@/types/ai";
 import { executeEditorTool, hasEditorTool } from "@/lib/editor-bridge";
 
+// AG-UI Phase 1：后端通过 tool-call-start 透传过来的前端工具名称。
+// 与后端 src/ais/langgraph/agent.graph.ts 中 FRONTEND_TOOL_NAMES 保持一致。
+const FRONTEND_TOOL_NAMES = new Set<string>(["edit_note_text"]);
+
 export interface AgentMessage {
   id: string;
   role: "user" | "assistant";
@@ -14,11 +18,43 @@ export interface AgentMessage {
   uiEvents?: UiEvent[];
 }
 
+async function postToolResult(
+  conversationId: string,
+  toolCallId: string,
+  result: unknown,
+): Promise<void> {
+  try {
+    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    await fetch(`/api/agent/${encodeURIComponent(conversationId)}/tool-result`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ toolCallId, result }),
+    });
+  } catch (err) {
+    // tool-result 回传失败不影响主流程，记录即可
+    console.warn("[useAgentStream] tool-result POST failed:", err);
+  }
+}
+
 export function useAgentStream() {
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const conversationIdRef = useRef<string | null>(null);
+
+  // 调用者可在挂载时初始化 conversationId，让 useEditorSync 在第一次 sendMessage 前就能推送 context。
+  const ensureConversationId = useCallback(() => {
+    if (!conversationIdRef.current) {
+      const id = `conv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      conversationIdRef.current = id;
+      setConversationId(id);
+    }
+    return conversationIdRef.current;
+  }, []);
 
   const handleUiEvent = useCallback((event: UiEvent, assistantId?: string) => {
     const name = event.component as FrontendToolName;
@@ -52,18 +88,60 @@ export function useAgentStream() {
     const assistantMsg: AgentMessage = { id: assistantId, role: "assistant", content: "" };
     setMessages((prev) => [...prev, assistantMsg]);
 
+    // 同一会话内复用 conversationId，方便后端 tool-result 关联。
+    const conversationId = ensureConversationId();
+
     setIsLoading(true);
     const abort = new AbortController();
     abortRef.current = abort;
 
     try {
       await agentChatStream(
-        { message: text, noteContext },
+        { message: text, noteContext, conversationId },
         (event: AgentStreamEvent) => {
           if (abort.signal.aborted) return;
 
           if (event.type === "ui") {
             handleUiEvent(event, assistantId);
+            return;
+          }
+
+          // AG-UI Phase 1：拦截 edit_note_text 等前端工具调用，立即在编辑器执行
+          if (event.type === "tool-call-start" && FRONTEND_TOOL_NAMES.has(event.tool)) {
+            let result: unknown = { applied: false, reason: "tool not registered" };
+            try {
+              result = executeEditorTool(
+                event.tool,
+                event.args as Record<string, unknown>,
+              );
+            } catch (err) {
+              result = {
+                applied: false,
+                error: err instanceof Error ? err.message : String(err),
+              };
+            }
+            // 异步回传结果（不阻塞 SSE 处理）
+            void postToolResult(conversationId, event.id, result);
+            // 仍然在 UI 上记录这条工具调用，让用户看到 agent 做了什么
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      toolCalls: [
+                        ...(m.toolCalls || []),
+                        {
+                          id: event.id,
+                          tool: event.tool,
+                          args: event.args,
+                          result,
+                          done: true,
+                        },
+                      ],
+                    }
+                  : m,
+              ),
+            );
             return;
           }
 
@@ -124,7 +202,7 @@ export function useAgentStream() {
       setIsLoading(false);
       abortRef.current = null;
     }
-  }, [isLoading, handleUiEvent]);
+  }, [isLoading, handleUiEvent, ensureConversationId]);
 
   const cancel = useCallback(() => {
     abortRef.current?.abort();
@@ -134,6 +212,8 @@ export function useAgentStream() {
   const clearMessages = useCallback(() => {
     setMessages([]);
     setError(null);
+    conversationIdRef.current = null;
+    setConversationId(null);
   }, []);
 
   const removeUiEvent = useCallback((msgId: string, eventIndex: number) => {
@@ -167,5 +247,5 @@ export function useAgentStream() {
     });
   }, []);
 
-  return { messages, isLoading, error, sendMessage, cancel, clearMessages, handleUiEvent, removeUiEvent, filterUiEvents, addUiEvent };
+  return { messages, isLoading, error, conversationId, ensureConversationId, sendMessage, cancel, clearMessages, handleUiEvent, removeUiEvent, filterUiEvents, addUiEvent };
 }
