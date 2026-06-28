@@ -59,8 +59,14 @@ import { AIPolishDialog } from "@/components/ai-polish-dialog";
 import { AIContextMenu } from "@/components/ai-context-menu";
 import { registerDefaultEditorTools } from "@/lib/editor-tools";
 import { registerEditorTool, unregisterEditorTool, storeEditorRef, executeEditorTool } from "@/lib/editor-bridge";
+import { expandText, condenseText } from "@/lib/ai-client";
 import { PreviewMark } from "@/lib/preview-mark";
 import { AiEditMark } from "@/lib/ai-edit-mark";
+import { AiStreamingMark } from "@/lib/ai-streaming-mark";
+import { AiStreamingCursor } from "@/lib/ai-streaming-cursor";
+import { GhostTextExtension } from "@/lib/ghost-text-extension";
+import { useGhostSuggestion } from "@/hooks/useGhostSuggestion";
+import { useAiFeatureStore } from "@/lib/store/ai-features";
 import { toast } from "sonner";
 
 interface TiptapProps {
@@ -130,6 +136,22 @@ export default function Tiptap({
           return true;
         },
       },
+      // AG-UI Phase E：编辑器快捷键。Ctrl+E 扩写，Ctrl+J 精简（需要先选中文字）
+      handleKeyDown(view, event) {
+        if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey) {
+          return false;
+        }
+        const key = event.key.toLowerCase();
+        if (key !== "e" && key !== "j") return false;
+        const { from, to } = view.state.selection;
+        if (from === to) return false;
+        const text = view.state.doc.textBetween(from, to, " ");
+        if (!text.trim()) return false;
+        event.preventDefault();
+        // 异步执行 + toast 撤销，不阻塞 keydown
+        void runQuickAiActionRef.current?.(key === "e" ? "expand" : "condense", text, from, to);
+        return true;
+      },
       attributes: {
         class:
           "prose prose-lg dark:prose-invert max-w-none focus:outline-none min-h-[600px] p-6 prose-headings:text-gray-100 prose-p:text-gray-300 prose-strong:text-gray-100 prose-em:text-gray-300 prose-code:text-green-400 prose-blockquote:text-gray-400 prose-ul:text-gray-300 prose-ol:text-gray-300 prose-li:text-gray-300",
@@ -161,6 +183,9 @@ export default function Tiptap({
       }),
       PreviewMark,
       AiEditMark,
+      AiStreamingMark,
+      AiStreamingCursor,
+      GhostTextExtension,
       Image.configure({
         inline: false,
         allowBase64: true,
@@ -182,6 +207,10 @@ export default function Tiptap({
       debouncedOnChange(html);
     },
   });
+
+  // AG-UI Phase B：挂 Ghost Text 建议 hook（默认关，由 AgentChatPanel 的开关控制）
+  const ghostEnabled = useAiFeatureStore((s) => s.ghostTextEnabled);
+  useGhostSuggestion({ editor, enabled: ghostEnabled });
 
   useEffect(() => {
     if (!editor) return;
@@ -323,6 +352,52 @@ export default function Tiptap({
       },
     });
   }, [editor, contextMenu]);
+
+  // AG-UI Phase E：Ctrl+E / Ctrl+J 快捷键直接触发 AI 操作，不经过右键菜单 UI
+  // 用 ref 是因为 TipTap editorProps.handleKeyDown 是在 useEditor 初始化时绑定的，
+  // 闭包里的 setState/state 是初始值；用 ref 拿到最新的执行函数。
+  const runQuickAiAction = useCallback(
+    async (action: "expand" | "condense", text: string, from: number, to: number) => {
+      const loadingToast = toast.loading(action === "expand" ? "AI 扩写中..." : "AI 精简中...");
+      try {
+        const result =
+          action === "expand" ? await expandText(text) : await condenseText(text);
+        toast.dismiss(loadingToast);
+        const applyResult = executeEditorTool("edit_note_text", {
+          operation: "replaceRange",
+          from,
+          to,
+          text: result,
+        }) as { applied?: boolean } | null;
+        if (!applyResult?.applied) {
+          toast.error("应用 AI 结果失败");
+          return;
+        }
+        toast.success(action === "expand" ? "已扩写" : "已精简", {
+          duration: 5000,
+          action: {
+            label: "撤销",
+            onClick: () => {
+              executeEditorTool("edit_note_text", {
+                operation: "replaceRange",
+                from,
+                to: from + result.length,
+                text,
+              });
+            },
+          },
+        });
+      } catch (err) {
+        toast.dismiss(loadingToast);
+        toast.error(err instanceof Error ? err.message : "AI 处理失败");
+      }
+    },
+    [],
+  );
+  const runQuickAiActionRef = useRef(runQuickAiAction);
+  useEffect(() => {
+    runQuickAiActionRef.current = runQuickAiAction;
+  }, [runQuickAiAction]);
 
   const replaceWithPolish = useCallback((polishedText: string) => {
     if (!editor || !polishRange) return;

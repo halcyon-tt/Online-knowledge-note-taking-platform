@@ -7,7 +7,11 @@ import { executeEditorTool, hasEditorTool } from "@/lib/editor-bridge";
 
 // AG-UI Phase 1：后端通过 tool-call-start 透传过来的前端工具名称。
 // 与后端 src/ais/langgraph/agent.graph.ts 中 FRONTEND_TOOL_NAMES 保持一致。
-const FRONTEND_TOOL_NAMES = new Set<string>(["edit_note_text"]);
+const FRONTEND_TOOL_NAMES = new Set<string>([
+  "edit_note_text",
+  "stream_edit_note_text",
+]);
+const STREAMING_TOOL_NAMES = new Set<string>(["stream_edit_note_text"]);
 
 export interface AgentMessage {
   id: string;
@@ -73,16 +77,23 @@ export function useAgentStream() {
     }
   }, []);
 
-  const sendMessage = useCallback(async (text: string, noteContext?: { noteId?: number; title?: string; content?: string }) => {
-    if (!text.trim() || isLoading) return;
-    setError(null);
+  const sendMessage = useCallback(
+    async (
+      text: string,
+      noteContext?: { noteId?: number; title?: string; content?: string },
+      options?: { displayText?: string },
+    ) => {
+      if (!text.trim() || isLoading) return;
+      setError(null);
 
-    const userMsg: AgentMessage = {
-      id: `user_${Date.now()}`,
-      role: "user",
-      content: text,
-    };
-    setMessages((prev) => [...prev, userMsg]);
+      // displayText 是给用户看的"干净版"（不含 [当前选中: ...] 之类的技术注释）
+      // text 是发给 agent 的完整版（包含选区上下文）
+      const userMsg: AgentMessage = {
+        id: `user_${Date.now()}`,
+        role: "user",
+        content: options?.displayText ?? text,
+      };
+      setMessages((prev) => [...prev, userMsg]);
 
     const assistantId = `assistant_${Date.now()}`;
     const assistantMsg: AgentMessage = { id: assistantId, role: "assistant", content: "" };
@@ -108,6 +119,37 @@ export function useAgentStream() {
 
           // AG-UI Phase 1：拦截 edit_note_text 等前端工具调用，立即在编辑器执行
           if (event.type === "tool-call-start" && FRONTEND_TOOL_NAMES.has(event.tool)) {
+            // Phase A 流式工具：tool-call-start 时只做"开始"动作（定位插入点 + 删旧 + 初始化 streaming 状态）
+            if (STREAMING_TOOL_NAMES.has(event.tool)) {
+              const args = (event.args as Record<string, unknown>) ?? {};
+              executeEditorTool("stream_edit_note_text_start", {
+                id: event.id,
+                operation: args.operation,
+                from: args.from,
+                to: args.to,
+              });
+              // 在 UI 上记录"AI 正在流式生成"
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? {
+                        ...m,
+                        toolCalls: [
+                          ...(m.toolCalls || []),
+                          {
+                            id: event.id,
+                            tool: event.tool,
+                            args: event.args,
+                            done: false,
+                          },
+                        ],
+                      }
+                    : m,
+                ),
+              );
+              return;
+            }
+
             let result: unknown = { applied: false, reason: "tool not registered" };
             try {
               result = executeEditorTool(
@@ -143,6 +185,57 @@ export function useAgentStream() {
               ),
             );
             return;
+          }
+
+          // Phase A 流式 delta：逐字追加到编辑器（不进 React state）
+          if (event.type === "tool-stream-delta") {
+            executeEditorTool("stream_edit_note_text_delta", {
+              id: event.id,
+              delta: event.delta,
+            });
+            return;
+          }
+
+          // Phase A 流式结束：移除 streaming mark + flashAiEdit + 写回 result
+          if (event.type === "tool-call-end") {
+            const finishResult = executeEditorTool(
+              "stream_edit_note_text_finish",
+              { id: event.id },
+            ) as {
+              finished?: boolean;
+              from?: number;
+              to?: number;
+              oldText?: string;
+              newText?: string;
+              operation?: string;
+            } | null;
+            if (finishResult?.finished) {
+              void postToolResult(conversationId, event.id, finishResult);
+              // 把 result 写回对应 toolCall，让 diff 卡片能渲染
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? {
+                        ...m,
+                        toolCalls: (m.toolCalls || []).map((tc) =>
+                          tc.id === event.id
+                            ? {
+                                ...tc,
+                                done: true,
+                                result: {
+                                  applied: true,
+                                  ...finishResult,
+                                },
+                              }
+                            : tc,
+                        ),
+                      }
+                    : m,
+                ),
+              );
+              return;
+            }
+            // 不是流式工具的 end：走原通用逻辑（标记 toolCall done）
           }
 
           setMessages((prev) => {

@@ -76,6 +76,7 @@ export type AgentStreamEvent =
   | { type: "tool-call-start"; id: string; tool: string; args: unknown }
   | { type: "tool-call-end"; id: string }
   | { type: "tool-result"; id: string; result: unknown }
+  | { type: "tool-stream-delta"; id: string; delta: string }
   | UiEvent
   | { type: "human-in-the-loop"; id: string; action: string; payload: unknown }
   | { type: "error"; message: string }

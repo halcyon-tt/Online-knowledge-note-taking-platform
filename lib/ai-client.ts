@@ -102,6 +102,27 @@ export async function searchNotes(
   return postJson<SearchNotesResponse>("/api/ai/search-notes", request, signal);
 }
 
+export interface SuggestInlineRequest {
+  contextBefore: string;
+  contextAfter?: string;
+  noteId?: number;
+}
+
+export interface SuggestInlineResponse {
+  suggestion: string;
+}
+
+export async function suggestInline(
+  request: SuggestInlineRequest,
+  signal?: AbortSignal,
+): Promise<SuggestInlineResponse> {
+  return postJson<SuggestInlineResponse>(
+    "/api/ai/suggest-inline",
+    request,
+    signal,
+  );
+}
+
 async function streamSse<TEvent>(
   path: string,
   body: unknown,

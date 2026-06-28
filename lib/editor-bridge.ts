@@ -89,6 +89,25 @@ export function subscribeToLockedSelection(
   };
 }
 
+// 流式编辑状态：被 editor-tools 的 stream_edit_note_text 维护，
+// 记录当前正在被 AI 流式生成的范围（startPos + 当前长度）+ 原文（用于撤销）
+type StreamingState = {
+  id: string;
+  startPos: number;
+  length: number;
+  oldText: string;
+  operation: string;
+} | null;
+let streamingState: StreamingState = null;
+
+export function setStreamingState(s: StreamingState): void {
+  streamingState = s;
+}
+
+export function getStreamingState(): StreamingState {
+  return streamingState;
+}
+
 export interface EditorContext {
   selection?: { from: number; to: number; text: string };
   scrollPosition?: number;

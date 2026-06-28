@@ -1,0 +1,28 @@
+import { type NextRequest, NextResponse } from "next/server";
+
+const NEST_API_BASE = process.env.NEST_API_BASE_URL || "http://localhost:3001";
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const authHeader = request.headers.get("authorization");
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (authHeader) headers["Authorization"] = authHeader;
+    const nestResponse = await fetch(`${NEST_API_BASE}/api/ai/suggest-inline`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    const data = await nestResponse.json();
+    if (!nestResponse.ok) {
+      return NextResponse.json(data, { status: nestResponse.status });
+    }
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("AI suggest-inline buffer error:", error);
+    // ghost text 失败静默，前端拿到空 suggestion 不显示即可
+    return NextResponse.json({ suggestion: "" });
+  }
+}

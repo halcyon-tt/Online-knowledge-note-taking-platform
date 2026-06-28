@@ -43,13 +43,20 @@ Cursor / GitHub Copilot / ChatGPT Canvas 的"哇"时刻，本质都是**实时�
 
 ## 实施状态（2026-06-28 启动）
 
-| Phase                           | 状态   | 工作量   | 价值                       |
-| ------------------------------- | ------ | -------- | -------------------------- |
-| Phase A 流式打字机插入          | 未启动 | 1-1.5 天 | ⭐⭐⭐⭐⭐ Cursor 头号炫点 |
-| Phase B Ghost Text 灵感建议     | 未启动 | 1 天     | ⭐⭐⭐⭐ 不打扰的协作感    |
-| Phase C 思维链可视化            | 未启动 | 0.5-1 天 | ⭐⭐⭐ AI 透明度           |
-| Phase D 多步骤 Agent 操作可视化 | 未启动 | 1 天     | ⭐⭐⭐ 操控感              |
-| Phase E 体感细节打磨            | 未启动 | 0.5 天   | ⭐⭐ 细节加分              |
+| Phase                           | 状态                             | 工作量   | 价值                       |
+| ------------------------------- | -------------------------------- | -------- | -------------------------- |
+| Phase A 流式打字机插入          | **✅ 完成（已实战验证）**        | 1-1.5 天 | ⭐⭐⭐⭐⭐ Cursor 头号炫点 |
+| Phase B Ghost Text 灵感建议     | **✅ 完成（已实战验证）**        | 1 天     | ⭐⭐⭐⭐ 不打扰的协作感    |
+| Phase C 思维链可视化            | **≈ 90% 已落地（待端到端验证）** | 0.5-1 天 | ⭐⭐⭐ AI 透明度           |
+| Phase D 多步骤 Agent 操作可视化 | **≈ 90% 已落地（待端到端验证）** | 1 天     | ⭐⭐⭐ 操控感              |
+| Phase E 体感细节打磨            | **≈ 80% 已落地（待端到端验证）** | 0.5 天   | ⭐⭐ 细节加分              |
+
+**Phase E 已完成项：** 消息气泡 slide-up 入场动画；编辑器 Ctrl+E 扩写 / Ctrl+J 精简（直接走 edit_note_text 链路 + toast 撤销）；Esc 中断流式生成（输入框内 + 全局，但编辑器内 Esc 让 ProseMirror 处理）；AI 面板宽度可拖（左边缘 4px handle + localStorage 持久化，320-680px 范围）；暗色模式 ai-edit-highlight 饱和度从 0.18 降到 0.13。
+**未做：** Ctrl+K 命令面板、Ctrl+/ 快捷键面板（非核心，留 backlog）。
+| Phase D 多步骤 Agent 操作可视化 | 未启动 | 1 天 | ⭐⭐⭐ 操控感 |
+| Phase E 体感细节打磨 | 未启动 | 0.5 天 | ⭐⭐ 细节加分 |
+
+**Phase A 已完成项：** 后端 `stream_edit_note_text` 工具 + `STREAMING_TOOL_NAMES` + `isStreamingTool`；agent-engine `handleStreamingTool` 拦截 marker 走 doubao 流式 + yield `tool-stream-delta`；前端 `AiStreamingMark` + CSS 蓝色脉动 + 打字机光标；editor-tools 三件套（start/delta/finish）+ `streamingState`；useAgentStream 路由 streaming 事件。**待验证：** 浏览器端到端 demo。
 
 **推荐顺序：** A → C → B → D → E。理由：A 提供 SSE delta 基础设施；C 复用 A 的流式机制；B 和 D 是独立扩展。
 

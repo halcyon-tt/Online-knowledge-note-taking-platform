@@ -4,6 +4,8 @@ import {
   getPreviewRange,
   getLockedSelection,
   setLockedSelection,
+  setStreamingState,
+  getStreamingState,
 } from "@/lib/editor-bridge";
 
 // 给指定范围加 AiEdit 高亮 mark，2.8 秒后移除。CSS 动画负责淡出。
@@ -14,7 +16,6 @@ function flashAiEdit(editor: Editor, from: number, to: number) {
   editor.view.dispatch(
     editor.state.tr.addMark(from, to, markType.create()),
   );
-  // 用一个时间稍长的 timeout 等 CSS 动画跑完再移除 mark，避免突变
   window.setTimeout(() => {
     try {
       const docSize = editor.state.doc.content.size;
@@ -27,6 +28,26 @@ function flashAiEdit(editor: Editor, from: number, to: number) {
       // editor 可能已 unmount
     }
   }, 2800);
+}
+
+// 编辑发生后，把光标定位到新文本末尾 + scrollIntoView 让用户看到 AI 改了哪。
+// AG-UI Phase D：多步骤可视化的核心——让用户"看见"AI 在编辑器内的操作位置。
+function focusAndScrollTo(editor: Editor, pos: number) {
+  try {
+    const docSize = editor.state.doc.content.size;
+    const safePos = Math.max(0, Math.min(pos, docSize));
+    editor.view.dispatch(
+      editor.state.tr.setSelection(
+        // @ts-expect-error TextSelection 类型在 tiptap 中通过 dispatch 间接构造
+        editor.state.selection.constructor.near(
+          editor.state.doc.resolve(safePos),
+        ),
+      ),
+    );
+    editor.commands.scrollIntoView();
+  } catch {
+    // 静默
+  }
 }
 
 export interface RegisteredEditorTool {
@@ -151,6 +172,7 @@ export function registerDefaultEditorTools(editor: Editor): RegisteredEditorTool
             text,
           );
           flashAiEdit(editor, locked.from, locked.from + text.length);
+          focusAndScrollTo(editor, locked.from + text.length);
           setLockedSelection(null);
           return {
             applied: true,
@@ -168,11 +190,13 @@ export function registerDefaultEditorTools(editor: Editor): RegisteredEditorTool
             if (locked) {
               editor.commands.insertContentAt(locked.from, text);
               flashAiEdit(editor, locked.from, locked.from + text.length);
+              focusAndScrollTo(editor, locked.from + text.length);
               return { applied: true, operation, insertedAt: locked.from, usedLocked: true, newText: text };
             }
             const insertPos = editor.state.selection.from;
             editor.commands.insertContent(text);
             flashAiEdit(editor, insertPos, insertPos + text.length);
+            focusAndScrollTo(editor, insertPos + text.length);
             return { applied: true, operation, insertedAt: insertPos, newText: text };
           }
           case "replaceSelection": {
@@ -183,12 +207,14 @@ export function registerDefaultEditorTools(editor: Editor): RegisteredEditorTool
               const oldText = editor.state.doc.textBetween(range.from, range.to, " ");
               editor.commands.insertContentAt({ from: range.from, to: range.to }, text);
               flashAiEdit(editor, range.from, range.from + text.length);
+              focusAndScrollTo(editor, range.from + text.length);
               if (locked) setLockedSelection(null);
               return { applied: true, operation, from: range.from, to: range.to, usedLocked: !!locked, oldText, newText: text };
             }
             const insertPos = editor.state.selection.from;
             editor.commands.insertContent(text);
             flashAiEdit(editor, insertPos, insertPos + text.length);
+            focusAndScrollTo(editor, insertPos + text.length);
             return { applied: true, operation, note: "no selection, inserted at cursor", insertedAt: insertPos, newText: text };
           }
           case "replaceRange": {
@@ -197,6 +223,7 @@ export function registerDefaultEditorTools(editor: Editor): RegisteredEditorTool
             const oldText = editor.state.doc.textBetween(from, to, " ");
             editor.commands.insertContentAt({ from, to }, text);
             flashAiEdit(editor, from, from + text.length);
+            focusAndScrollTo(editor, from + text.length);
             if (locked && locked.from === from && locked.to === to) {
               setLockedSelection(null);
             }
@@ -209,6 +236,112 @@ export function registerDefaultEditorTools(editor: Editor): RegisteredEditorTool
               reason: `unknown operation, received args keys: ${Object.keys(args).join(",")}`,
             };
         }
+      },
+    },
+    // ---- AG-UI Phase A：流式打字机插入 ----
+    // 由 useAgentStream 拦截 tool-call-start(stream_edit_note_text) 调用
+    // 准备插入位置 + 删除旧文（若 replaceRange/replaceSelection）+ 在 editor-bridge 写入 streamingState
+    {
+      name: "stream_edit_note_text_start",
+      description: "[内部] 流式编辑开始：定位插入点，删除旧文，初始化 streamingState",
+      execute: (args) => {
+        const id = String(args.id ?? "stream-default");
+        const operation = String(args.operation ?? "replaceSelection");
+        const locked = getLockedSelection();
+
+        let startPos: number;
+        let oldText = "";
+
+        if (operation === "replaceRange" && typeof args.from === "number") {
+          const from = Number(args.from);
+          const to = Number(args.to ?? from);
+          oldText = editor.state.doc.textBetween(from, to, " ");
+          editor.commands.insertContentAt({ from, to }, "");
+          startPos = from;
+        } else if (operation === "replaceSelection") {
+          const range = locked ?? (() => {
+            const { from, to } = editor.state.selection;
+            return from !== to ? { from, to, text: "" } : null;
+          })();
+          if (range) {
+            oldText = editor.state.doc.textBetween(range.from, range.to, " ");
+            editor.commands.insertContentAt({ from: range.from, to: range.to }, "");
+            startPos = range.from;
+            if (locked) setLockedSelection(null);
+          } else {
+            startPos = editor.state.selection.from;
+          }
+        } else {
+          // insertAtCursor
+          startPos = locked ? locked.from : editor.state.selection.from;
+          if (locked) setLockedSelection(null);
+        }
+
+        setStreamingState({ id, startPos, length: 0, oldText, operation });
+        return { started: true, id, startPos, oldText, operation };
+      },
+    },
+    {
+      name: "stream_edit_note_text_delta",
+      description: "[内部] 流式编辑追加 delta：在 streamingState 末尾追加 + 加 aiStreaming mark",
+      execute: (args) => {
+        const id = String(args.id ?? "");
+        const delta = String(args.delta ?? "");
+        const state = getStreamingState();
+        if (!state || state.id !== id) {
+          return { applied: false, reason: "no matching streaming state" };
+        }
+        const insertAt = state.startPos + state.length;
+        const markType = editor.state.schema.marks.aiStreaming;
+        editor.commands.insertContentAt(insertAt, delta);
+        if (markType) {
+          const tr = editor.state.tr.addMark(
+            insertAt,
+            insertAt + delta.length,
+            markType.create(),
+          );
+          editor.view.dispatch(tr);
+        }
+        const newLength = state.length + delta.length;
+        setStreamingState({ ...state, length: newLength });
+        // 移动打字机光标到新末尾 + 滚动可见
+        editor.commands.setStreamingCursor(state.startPos + newLength);
+        editor.commands.scrollIntoView();
+        return { applied: true, id, appendedLength: delta.length };
+      },
+    },
+    {
+      name: "stream_edit_note_text_finish",
+      description:
+        "[内部] 流式编辑结束：移除 aiStreaming mark，换成 aiEdit 绿色淡出",
+      execute: (args) => {
+        const id = String(args.id ?? "");
+        const state = getStreamingState();
+        if (!state || state.id !== id) {
+          return { finished: false, reason: "no matching streaming state" };
+        }
+        const from = state.startPos;
+        const to = state.startPos + state.length;
+        // 清掉打字机光标
+        editor.commands.clearStreamingCursor();
+        const streamingMark = editor.state.schema.marks.aiStreaming;
+        if (streamingMark) {
+          editor.view.dispatch(
+            editor.state.tr.removeMark(from, to, streamingMark),
+          );
+        }
+        flashAiEdit(editor, from, to);
+        const newText = editor.state.doc.textBetween(from, to, " ");
+        setStreamingState(null);
+        return {
+          finished: true,
+          id,
+          from,
+          to,
+          oldText: state.oldText,
+          newText,
+          operation: state.operation,
+        };
       },
     },
   ];

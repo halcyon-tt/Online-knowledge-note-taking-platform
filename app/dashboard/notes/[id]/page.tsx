@@ -26,6 +26,55 @@ export default function NotePage({ params }: PageProps) {
   const [showAgent, setShowAgent] = useState(false);
   const [showWorkflow, setShowWorkflow] = useState(false);
 
+  // Phase E：AI 面板宽度持久化 + 可拖拽
+  const [agentWidth, setAgentWidth] = useState<number>(() => {
+    if (typeof window === "undefined") return 420;
+    const saved = window.localStorage.getItem("ai-panel-width");
+    return saved ? Math.max(320, Math.min(680, Number(saved))) : 420;
+  });
+  const draggingRef = useRef(false);
+
+  const startResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    draggingRef.current = true;
+    const startX = e.clientX;
+    const startWidth = agentWidth;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const onMove = (ev: MouseEvent) => {
+      if (!draggingRef.current) return;
+      const delta = startX - ev.clientX; // 向左拖加宽
+      const next = Math.max(320, Math.min(680, startWidth + delta));
+      setAgentWidth(next);
+    };
+    const onUp = () => {
+      draggingRef.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      window.localStorage.setItem(
+        "ai-panel-width",
+        String(
+          Math.max(
+            320,
+            Math.min(680, startWidth + (startX - (window.event as MouseEvent)?.clientX || 0)),
+          ),
+        ),
+      );
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [agentWidth]);
+
+  // 拖完持久化（更可靠）
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("ai-panel-width", String(agentWidth));
+    }
+  }, [agentWidth]);
+
   useEffect(() => {
     async function loadNote() {
       try {
@@ -227,7 +276,15 @@ export default function NotePage({ params }: PageProps) {
         </div>
       )}
       {showAgent && (
-        <div className="w-[420px] border-l bg-background flex flex-col shrink-0">
+        <div
+          className="relative border-l bg-background flex flex-col shrink-0"
+          style={{ width: `${agentWidth}px` }}
+        >
+          <div
+            className="ai-panel-resize-handle"
+            onMouseDown={startResize}
+            title="拖动调整 AI 面板宽度"
+          />
           <AgentChatPanel
             noteContext={{
               noteId: Number(id),

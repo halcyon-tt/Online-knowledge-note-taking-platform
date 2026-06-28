@@ -4,7 +4,7 @@ import type React from "react";
 
 import { useState, useRef, useEffect } from "react";
 import type { Editor } from "@tiptap/react";
-import { Send, Loader2, Bot, User, Square, AlertCircle, Check, X, Wrench, Pin } from "lucide-react";
+import { Send, Loader2, Bot, User, Square, AlertCircle, Check, X, Wrench, Pin, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -19,30 +19,42 @@ import {
 } from "@/lib/editor-bridge";
 import { useAgentStream } from "@/hooks/useAgentStream";
 import { useEditorSync } from "@/hooks/useEditorSync";
+import { ThinkingSteps } from "@/components/ai-ui/thinking-steps";
+import { useAiFeatureStore } from "@/lib/store/ai-features";
 
 // 给工具调用结果生成人类可读的简短描述，避免直接显示 ack JSON
 function formatToolResult(tool: string, result: unknown): string {
-  if (tool === "edit_note_text") {
+  if (tool === "edit_note_text" || tool === "stream_edit_note_text") {
     const r = result as {
       applied?: boolean;
+      finished?: boolean;
       operation?: string;
       from?: number;
       to?: number;
       insertedAt?: number;
       reason?: string;
       note?: string;
+      newText?: string;
     };
-    if (!r.applied) {
-      // 显示完整 reason，方便定位 agent 行为
+    // stream 工具的 result.finished === true 表示流式完成
+    const ok = r.applied || r.finished;
+    if (!ok) {
       return `✗ 未应用${r.reason ? `（${r.reason}）` : ""}${r.operation ? ` operation=${r.operation}` : ""}`;
     }
+    const charCount = r.newText ? r.newText.length : null;
+    const sizeLabel = charCount != null ? `，${charCount} 字` : "";
+    if (tool === "stream_edit_note_text") {
+      return r.from != null
+        ? `✓ 流式生成完成 (pos ${r.from}..${r.to}${sizeLabel})`
+        : `✓ 流式生成完成${sizeLabel}`;
+    }
     if (r.operation === "replaceRange" || r.operation === "replaceSelection" || r.operation === "replaceRange-fallback") {
-      return r.from != null ? `✓ 已替换文本 (pos ${r.from}..${r.to})` : `✓ 已替换文本`;
+      return r.from != null ? `✓ 已替换文本 (pos ${r.from}..${r.to}${sizeLabel})` : `✓ 已替换文本`;
     }
     if (r.operation === "insertAtCursor") {
-      return r.insertedAt != null ? `✓ 已插入文本 (pos ${r.insertedAt})` : `✓ 已插入文本`;
+      return r.insertedAt != null ? `✓ 已插入文本 (pos ${r.insertedAt}${sizeLabel})` : `✓ 已插入文本`;
     }
-    return `✓ 已应用 ${r.operation ?? ""}`;
+    return `✓ 已应用 ${r.operation ?? ""}${sizeLabel}`;
   }
   if (tool === "search_notes") {
     if (Array.isArray(result)) return `找到 ${result.length} 篇相关笔记`;
@@ -143,7 +155,8 @@ export function AgentChatPanel({ noteContext }: AgentChatPanelProps) {
     const enrichedText = lockedSel
       ? `${text}\n\n[当前选中 pos ${lockedSel.from}..${lockedSel.to}: "${lockedSel.text.slice(0, 200)}"]`
       : text;
-    await sendMessage(enrichedText, enrichedNoteContext);
+    // displayText：用户气泡只显示原始输入，不暴露技术注释
+    await sendMessage(enrichedText, enrichedNoteContext, { displayText: text });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -151,7 +164,46 @@ export function AgentChatPanel({ noteContext }: AgentChatPanelProps) {
       e.preventDefault();
       handleSend();
     }
+    // Phase E：Esc 中断流式生成
+    if (e.key === "Escape" && isLoading) {
+      e.preventDefault();
+      cancel();
+    }
   };
+
+  // Phase E：全局 Esc 也能中断 agent（用户失焦输入框时按 Esc）
+  useEffect(() => {
+    if (!isLoading) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        const active = document.activeElement;
+        // 编辑器内按 Esc 让 ProseMirror 处理（清 ghost / 取消选区），不要全局中断
+        const isInEditor = active?.closest?.(".ProseMirror");
+        if (isInEditor) return;
+        cancel();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isLoading, cancel]);
+
+  // Phase B Ghost Text 开关
+  const ghostEnabled = useAiFeatureStore((s) => s.ghostTextEnabled);
+  const toggleGhost = useAiFeatureStore((s) => s.toggleGhostText);
+
+  // Phase D：批量操作进度统计。在最近活跃的 assistant message 里数 edit 类工具调用。
+  const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant");
+  const editCount = lastAssistantMsg?.toolCalls?.filter(
+    (tc) =>
+      (tc.tool === "edit_note_text" || tc.tool === "stream_edit_note_text") &&
+      tc.done,
+  ).length ?? 0;
+  const pendingEdit = lastAssistantMsg?.toolCalls?.some(
+    (tc) =>
+      (tc.tool === "edit_note_text" || tc.tool === "stream_edit_note_text") &&
+      !tc.done,
+  );
+  const showBatchBanner = isLoading && (editCount >= 2 || (editCount >= 1 && pendingEdit));
 
   return (
     <div className="flex flex-col h-full">
@@ -160,7 +212,17 @@ export function AgentChatPanel({ noteContext }: AgentChatPanelProps) {
           <Bot className="h-4 w-4 text-primary" />
           <span className="text-sm font-medium">AI Agent</span>
         </div>
-        <div className="flex gap-1">
+        <div className="flex items-center gap-1">
+          <Button
+            variant={ghostEnabled ? "default" : "ghost"}
+            size="sm"
+            onClick={toggleGhost}
+            className="h-7 text-xs"
+            title="智能续写建议：停顿 1.5 秒后浮出灰色建议，Tab 接受，Esc 忽略"
+          >
+            <Sparkles className="h-3 w-3 mr-1" />
+            {ghostEnabled ? "智能建议开" : "智能建议"}
+          </Button>
           {messages.length > 0 && (
             <Button variant="ghost" size="sm" onClick={clearMessages} className="h-7 text-xs">
               <X className="h-3 w-3 mr-1" />
@@ -177,6 +239,25 @@ export function AgentChatPanel({ noteContext }: AgentChatPanelProps) {
         </div>
       )}
 
+      {showBatchBanner && (
+        <div className="flex items-center justify-between gap-2 px-4 py-2 bg-blue-500/10 text-blue-700 dark:text-blue-300 text-xs border-b border-blue-500/20">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>Agent 正在批量修改笔记 · 已完成 {editCount} 处{pendingEdit ? "（进行中…）" : ""}</span>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 text-[11px] text-blue-700 dark:text-blue-300 hover:bg-blue-500/20"
+            onClick={cancel}
+            title="中断批量操作"
+          >
+            <Square className="h-3 w-3 mr-1" />
+            中断
+          </Button>
+        </div>
+      )}
+
       <ScrollArea className="flex-1 px-4 py-3">
         <div className="space-y-4">
           {messages.length === 0 && (
@@ -190,7 +271,7 @@ export function AgentChatPanel({ noteContext }: AgentChatPanelProps) {
           )}
 
           {messages.map((msg) => (
-            <div key={msg.id} className="space-y-2">
+            <div key={msg.id} className="space-y-2 ai-message-enter">
               <div
                 className={`flex gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
               >
@@ -214,71 +295,10 @@ export function AgentChatPanel({ noteContext }: AgentChatPanelProps) {
                 </div>
               </div>
 
-              {/* Tool calls */}
+              {/* Tool calls：渲染为思维链步骤流（带图标 + 状态 + 入场动画 + diff/撤销） */}
               {msg.toolCalls && msg.toolCalls.length > 0 && (
-                <div className="flex gap-2 ml-9">
-                  <div className="flex-1 space-y-1">
-                    {msg.toolCalls.map((tc, i) => (
-                      <Card key={i} className="bg-muted/30 border-border/30">
-                        <CardContent className="p-2 text-xs space-y-2">
-                          <div className="flex items-center gap-1 text-muted-foreground">
-                            <Wrench className="h-3 w-3" />
-                            <span className="font-mono">{tc.tool}</span>
-                          </div>
-                          {tc.result != null && tc.id !== "organize" ? (
-                            <p className="text-muted-foreground/80 text-[11px] leading-relaxed break-words">
-                              {formatToolResult(tc.tool, tc.result)}
-                            </p>
-                          ) : null}
-                          {/* AI 编辑工具：展示原文 vs 新文对比 + 撤销按钮 */}
-                          {tc.tool === "edit_note_text" && (() => {
-                            const r = tc.result as {
-                              applied?: boolean;
-                              oldText?: string;
-                              newText?: string;
-                              from?: number;
-                              insertedAt?: number;
-                            } | undefined;
-                            if (!r?.applied || !r?.newText) return null;
-                            const fromPos = r.from ?? r.insertedAt ?? 0;
-                            return (
-                              <div className="grid grid-cols-1 gap-1 mt-1">
-                                {r.oldText && (
-                                  <div className="p-1.5 rounded bg-red-50 dark:bg-red-950/30 border border-red-200/60 dark:border-red-800/60">
-                                    <p className="font-medium text-[10px] text-red-600 dark:text-red-400 mb-0.5">原文</p>
-                                    <p className="whitespace-pre-wrap text-muted-foreground line-through text-[11px] leading-relaxed">{r.oldText}</p>
-                                  </div>
-                                )}
-                                <div className="p-1.5 rounded bg-green-50 dark:bg-green-950/30 border border-green-200/60 dark:border-green-800/60">
-                                  <p className="font-medium text-[10px] text-green-600 dark:text-green-400 mb-0.5">{r.oldText ? "替换为" : "插入"}</p>
-                                  <p className="whitespace-pre-wrap text-muted-foreground text-[11px] leading-relaxed">{r.newText}</p>
-                                </div>
-                                {r.oldText && (
-                                  <div className="flex justify-end pt-0.5">
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-6 text-[11px] bg-transparent"
-                                      onClick={() => {
-                                        const ok = undoAiEdit(fromPos, r.newText!, r.oldText!);
-                                        if (!ok) {
-                                          alert("撤销失败：内容可能已变化，无法定位。");
-                                        }
-                                      }}
-                                      title="撤销这次 AI 修改，恢复原文"
-                                    >
-                                      <X className="h-3 w-3 mr-1" />
-                                      撤销
-                                    </Button>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                <div className="ml-9">
+                  <ThinkingSteps steps={msg.toolCalls} />
                 </div>
               )}
 
